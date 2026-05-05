@@ -14,7 +14,12 @@ before_script:
   - apt-get install -y cmake ninja-build clang git
 
 build:
+  tags:
+    - local
   stage: build
+  script:
+    - cmake -S . -B $BUILD_DIR -G Ninja -DCMAKE_BUILD_TYPE=Debug
+    - cmake --build $BUILD_DIR
   script:
     - cmake -S . -B $BUILD_DIR -G Ninja -DCMAKE_BUILD_TYPE=Debug
     - cmake --build $BUILD_DIR
