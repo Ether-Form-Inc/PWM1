@@ -1,6 +1,6 @@
-#include <pwm_controller.h>
+#include <controllers/pwm_controller.h>
 
-#include <can_interface.h>
+#include <can_interfaces/can_interface.h>
 
 void PWM_controller::write(CAN_interface &interface, uint32_t output_port, uint32_t pulse_width)
 {

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <pwm_controller.h>
-#include <usb_can_interface.h>
+#include <controllers/pwm_controller.h>
+#include <can_interfaces/usb_can_interface.h>
 
 TEST(PWM_controller, Write)
 {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <can_interface.h>
+#include <can_interfaces/can_interface.h>
 
 class Usb_can_interface : public CAN_interface
 {
