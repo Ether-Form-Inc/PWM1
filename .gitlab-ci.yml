@@ -28,5 +28,5 @@ test:
     - build
   script:
     - cd $BUILD_DIR
-    - ./tests/tests
+    - ./tests/can_to_pwm_firmware_tests
     
