@@ -11,7 +11,7 @@ variables:
 
 before_script:
   - apt-get update
-  - apt-get install -y cmake ninja-build clang git
+  - apt-get install -y cmake ninja-build clang git python3-venv
 
 build:
   stage: build
