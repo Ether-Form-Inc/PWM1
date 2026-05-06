@@ -26,19 +26,36 @@ if(NOT venv_status EQUAL 0)
     "stderr:\n${venv_error}"
   )
 endif()
+  
+message(STATUS "Installing pip requirement: ${VENV_DIR}")
 
 execute_process(
   COMMAND ${CMAKE_BINARY_DIR}/venv/bin/pip install -r ${CMAKE_BINARY_DIR}/dsdlc/requirements.txt
-  COMMAND ${CMAKE_BINARY_DIR}/venv/bin/pip install dronecan
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  RESULT_VARIABLE pip_status
-  ERROR_VARIABLE pip_error
+  RESULT_VARIABLE pip_install_result
+  ERROR_VARIABLE pip_install_error
 )
 
-if(NOT pip_status EQUAL 0)
+if(NOT pip_install_result EQUAL 0)
   message(FATAL_ERROR
     "Failed to install requirements\n"
-    "stderr:\n${pip_error}"
+    "stderr:\n${pip_install_error}"
+  )
+endif()
+
+message(STATUS "Installing drone can: ${VENV_DIR}")
+
+execute_process(
+  COMMAND ${CMAKE_BINARY_DIR}/venv/bin/pip install dronecan
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  RESULT_VARIABLE dronecan_install_result
+  ERROR_VARIABLE dronecan_install_error
+)
+
+if(NOT dronecan_install_result EQUAL 0)
+  message(FATAL_ERROR
+    "Failed to install dronecan\n"
+    "stderr:\n${dronecan_install_error}"
   )
 endif()
 
