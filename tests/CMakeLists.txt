@@ -13,7 +13,6 @@ FetchContent_MakeAvailable(gtest)
 
 file(GLOB_RECURSE test_files 
   ${CMAKE_CURRENT_LIST_DIR}/*.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/*.h
   ${CMAKE_SOURCE_DIR}/messages/compiled/src
 )
 
@@ -25,18 +24,20 @@ if (COVERAGE_ENABLED)
   target_compile_options(${PROJECT_TEST_NAME} PRIVATE
     -fprofile-instr-generate -fcoverage-mapping
   )
+
   target_link_options(${PROJECT_TEST_NAME} PRIVATE
     -fprofile-instr-generate -fcoverage-mapping
   )
 endif()
 
-target_include_directories(${PROJECT_TEST_NAME} PUBLIC
-  ${CMAKE_CURRENT_LIST_DIR}
+target_include_directories(${PROJECT_TEST_NAME} PRIVATE
+  ${CMAKE_SOURCE_DIR}/lib
   ${CMAKE_BINARY_DIR}/libcanard
   ${CMAKE_SOURCE_DIR}/messages/compiled/include
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
+  ${PROJECT_NAME}
   gtest
   gtest_main
 )

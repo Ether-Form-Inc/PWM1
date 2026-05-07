@@ -18,14 +18,14 @@ Usb_can_interface::~Usb_can_interface()
   }
 }
 
-uint32_t Usb_can_interface::create_can_id(uint32_t priority, uint32_t message_id, uint8_t device_id)
+uint32_t Usb_can_interface::create_can_id(uint8_t priority, uint16_t message_id, uint8_t device_id)
 {
   uint32_t can_id{};
 
-  can_id |= (priority & 0x1F) << 24;
-  can_id |= (message_id & 0xFFFF) << 8;
+  can_id |= (static_cast<uint32_t>(priority) & 0x1F) << 24;
+  can_id |= (static_cast<uint32_t>(message_id) & 0xFFFF) << 8;
   can_id &= ~(1 << 7);
-  can_id |= device_id & 0x7F;
+  can_id |= static_cast<uint32_t>(device_id) & 0x7F;
 
   return can_id;
 }

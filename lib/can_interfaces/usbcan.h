@@ -59,7 +59,7 @@ static int terminate_after = 0;
 static int program_running = 1;
 static int inject_payload_mode = CANUSB_INJECT_PAYLOAD_MODE_FIXED;
 static float inject_sleep_gap = CANUSB_INJECT_SLEEP_GAP_DEFAULT;
-static int print_traffic = 0;
+static int print_traffic = 1;
 
 static CANUSB_SPEED canusb_int_to_speed(int speed)
 {

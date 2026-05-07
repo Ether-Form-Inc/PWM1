@@ -4,5 +4,7 @@ project(can_to_pwm_firmware)
 
 include(FetchContent)
 
+add_subdirectory(lib)
+add_subdirectory(loopback)
 add_subdirectory(messages)
 add_subdirectory(tests)
