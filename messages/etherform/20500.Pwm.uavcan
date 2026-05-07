@@ -1,0 +1,5 @@
+# An output port between 0 and 4
+uint8 output_port
+
+# A PWM value between 0 and 2000
+uint16 pulse_width

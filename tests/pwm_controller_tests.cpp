@@ -15,8 +15,7 @@ TEST(PWM_controller, Read)
   PWM_controller controller;
   Usb_can_interface interface{"/dev/ttyUSB0"};
 
-  uint32_t pulse_width{};
-  // controller.read(interface, pulse_width);
+  // etherform_Pwm{controller.read(interface)};
 }
 
 TEST(PWM_controller, Echo)

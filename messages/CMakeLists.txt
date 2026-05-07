@@ -76,6 +76,7 @@ FetchContent_Declare(
 FetchContent_Populate(libcanard)
 
 execute_process(
+  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
   COMMAND ../venv/bin/python3 dronecan_dsdlc.py -O ../../messages/compiled ../../messages/etherform
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
   RESULT_VARIABLE compile_messages_result
