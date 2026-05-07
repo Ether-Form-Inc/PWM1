@@ -10,6 +10,14 @@ Usb_can_interface::Usb_can_interface(const char *tty_device)
                    CANUSB_FRAME::CANUSB_FRAME_EXTENDED);
 }
 
+Usb_can_interface::~Usb_can_interface()
+{
+  if (m_tty_fd > 0)
+  {
+    close(m_tty_fd);
+  }
+}
+
 void Usb_can_interface::read(uint8_t *p_data, uint32_t len)
 {
   frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
