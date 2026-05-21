@@ -9,13 +9,14 @@
 #include <fcntl.h>
 #include <time.h>
 #include <ctype.h>
-#include <signal.h>
 #include <sys/time.h>
 
 #include <asm/termbits.h> /* struct termios2 */
 
 #define CANUSB_INJECT_SLEEP_GAP_DEFAULT 200 /* ms */
 #define CANUSB_TTY_BAUD_RATE_DEFAULT 2000000
+
+#define MAX_FRAME_SIZE 15
 
 typedef enum
 {
@@ -134,9 +135,9 @@ static int frame_is_complete(const unsigned char *frame, int frame_len)
       return 0;
     }
   }
-  else if ((frame[1] >> 4) == 0xc)
+  else if (((frame[1] >> 4) & 0xc) == 0xc)
   { /* Data frame... */
-    if (frame_len >= (frame[1] & 0xf) + 5)
+    if (frame_len >= (frame[1] & 0xf) + 7)
     { /* ...payload and 5 bytes. */
       return 1;
     }
@@ -147,7 +148,8 @@ static int frame_is_complete(const unsigned char *frame, int frame_len)
   }
 
   /* Unhandled frame type. */
-  return 1;
+  printf("Unhandled frame\n");
+  return 0;
 }
 
 static int frame_send(int tty_fd, const unsigned char *frame, int frame_len)
@@ -279,7 +281,6 @@ static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CA
 
 static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, unsigned char data[], int data_length_code)
 {
-#define MAX_FRAME_SIZE 15
   int data_frame_len = 0;
   unsigned char data_frame[MAX_FRAME_SIZE] = {0x00};
 
@@ -327,183 +328,6 @@ static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, uns
   }
 
   return 0;
-}
-
-static int hex_value(int c)
-{
-  if (c >= 0x30 && c <= 0x39) /* '0' - '9' */
-    return c - 0x30;
-  else if (c >= 0x41 && c <= 0x46) /* 'A' - 'F' */
-    return (c - 0x41) + 10;
-  else if (c >= 0x61 && c <= 0x66) /* 'a' - 'f' */
-    return (c - 0x61) + 10;
-  else
-    return -1;
-}
-
-static unsigned long convert_hex_id(const char *hex_string)
-{
-  unsigned long result = 0;
-  while (*hex_string)
-  {
-    int val = hex_value(*hex_string);
-    if (val >= 0)
-      result = (result << 4) | val;
-    hex_string++;
-  }
-  return result;
-}
-
-static int convert_from_hex(const char *hex_string, unsigned char *bin_string, int bin_string_len)
-{
-  int n1, n2, high;
-
-  high = -1;
-  n1 = n2 = 0;
-  while (hex_string[n1] != '\0')
-  {
-    if (hex_value(hex_string[n1]) >= 0)
-    {
-      if (high == -1)
-      {
-        high = hex_string[n1];
-      }
-      else
-      {
-        bin_string[n2] = hex_value(high) * 16 + hex_value(hex_string[n1]);
-        n2++;
-        if (n2 >= bin_string_len)
-        {
-          printf("hex string truncated to %d bytes\n", n2);
-          break;
-        }
-        high = -1;
-      }
-    }
-    n1++;
-  }
-
-  return n2;
-}
-
-static int inject_data_frame(int tty_fd, const char *hex_id, const char *hex_data)
-{
-  int data_len;
-  unsigned char binary_data[8];
-  struct timespec gap_ts;
-  struct timeval now;
-  int error = 0;
-  CANUSB_FRAME frame_type = CANUSB_FRAME_STANDARD;
-
-  gap_ts.tv_sec = inject_sleep_gap / 1000;
-  gap_ts.tv_nsec = (long)(((long long)(inject_sleep_gap * 1000000)) % 1000000000LL);
-
-  /* Set seed value for pseudo random numbers. */
-  gettimeofday(&now, NULL);
-  srandom(now.tv_usec);
-
-  data_len = convert_from_hex(hex_data, binary_data, sizeof(binary_data));
-  if (data_len == 0)
-  {
-    fprintf(stderr, "Unable to convert data from hex to binary!\n");
-    return -1;
-  }
-
-  size_t id_len = strlen(hex_id);
-  unsigned long id = convert_hex_id(hex_id);
-
-  if (id_len <= 3)
-  {
-    if (id > 0x7FF)
-    {
-      fprintf(stderr, "Standard CAN ID cannot exceed 11 bits (0x7FF)!\n");
-      return -1;
-    }
-    frame_type = CANUSB_FRAME_STANDARD;
-  }
-  else
-  {
-    if (id > 0x1FFFFFFF)
-    {
-      fprintf(stderr, "Extended CAN ID cannot exceed 29 bits (0x1FFFFFFF)!\n");
-      return -1;
-    }
-    frame_type = CANUSB_FRAME_EXTENDED;
-  }
-
-  while (program_running && !error)
-  {
-    if (gap_ts.tv_sec || gap_ts.tv_nsec)
-      nanosleep(&gap_ts, NULL);
-
-    if (terminate_after && (--terminate_after == 0))
-      program_running = 0;
-
-    if (inject_payload_mode == CANUSB_INJECT_PAYLOAD_MODE_RANDOM)
-    {
-      int i;
-      for (i = 0; i < data_len; i++)
-        binary_data[i] = random();
-    }
-    else if (inject_payload_mode == CANUSB_INJECT_PAYLOAD_MODE_INCREMENTAL)
-    {
-      int i;
-      for (i = 0; i < data_len; i++)
-        binary_data[i]++;
-    }
-
-    error = send_data_frame(tty_fd, frame_type, id, binary_data, data_len);
-  }
-
-  return error;
-}
-
-static void dump_data_frames(int tty_fd)
-{
-  int i, frame_len;
-  unsigned char frame[32];
-  struct timespec ts;
-
-  while (program_running)
-  {
-    frame_len = frame_recv(tty_fd, frame, sizeof(frame));
-
-    if (!program_running)
-      break;
-
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    printf("%lu.%06lu ", ts.tv_sec, ts.tv_nsec / 1000);
-
-    if (frame_len == -1)
-    {
-      printf("Frame recieve error!\n");
-    }
-    else
-    {
-
-      if ((frame_len >= 6) && (frame[0] == 0xaa) && ((frame[1] >> 4) == 0xc))
-      {
-        printf("Frame ID: %02x%02x, Data: ", frame[3], frame[2]);
-        for (i = frame_len - 2; i > 3; i--)
-        {
-          printf("%02x ", frame[i]);
-        }
-        printf("\n");
-      }
-      else
-      {
-        printf("Unknown: ");
-        for (i = 0; i <= frame_len; i++)
-        {
-          printf("%02x ", frame[i]);
-        }
-        printf("\n");
-      }
-    }
-
-    if (terminate_after && (--terminate_after == 0))
-      program_running = 0;
-  }
 }
 
 static int adapter_init(const char *tty_device, int baudrate)

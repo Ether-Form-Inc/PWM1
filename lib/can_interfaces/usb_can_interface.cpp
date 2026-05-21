@@ -18,26 +18,17 @@ Usb_can_interface::~Usb_can_interface()
   }
 }
 
-uint32_t Usb_can_interface::create_can_id(uint8_t priority, uint16_t message_id, uint8_t device_id)
+bool Usb_can_interface::read(uint8_t *p_data, uint32_t len)
 {
-  uint32_t can_id{};
-
-  can_id |= (static_cast<uint32_t>(priority) & 0x1F) << 24;
-  can_id |= (static_cast<uint32_t>(message_id) & 0xFFFF) << 8;
-  can_id &= ~(1 << 7);
-  can_id |= static_cast<uint32_t>(device_id) & 0x7F;
-
-  return can_id;
-}
-
-void Usb_can_interface::read(uint8_t *p_data, uint32_t len)
-{
-  frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
+  if (frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len) >= 0)
+  {
+    return true;
+  }
+  return false;
 }
 
 void Usb_can_interface::write(uint32_t can_id, uint8_t *p_data, uint32_t len)
 {
-
   send_data_frame(m_tty_fd, CANUSB_FRAME::CANUSB_FRAME_EXTENDED, static_cast<unsigned long>(can_id),
                   reinterpret_cast<unsigned char *>(p_data), len);
 }
