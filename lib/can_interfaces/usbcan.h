@@ -196,31 +196,62 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
   frame_len = 0;
   while (program_running)
   {
-    result = read(tty_fd, &byte, 1);
-    if (result == -1)
+    fd_set readfds;
+    struct timeval timeout;
+
+    FD_ZERO(&readfds);
+    FD_SET(tty_fd, &readfds);
+
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 10000; // 10ms timeout
+
+    int select_result = select(tty_fd + 1, &readfds, NULL, NULL, &timeout);
+    if (select_result > 0 && FD_ISSET(tty_fd, &readfds))
     {
-      if (errno != EAGAIN && errno != EWOULDBLOCK)
+      result = read(tty_fd, &byte, 1);
+      if (result == -1)
       {
-        fprintf(stderr, "read() failed: %s\n", strerror(errno));
-        return -1;
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+          fprintf(stderr, "read() failed: %s\n", strerror(errno));
+          return -1;
+        }
+      }
+      else if (result > 0)
+      {
+        if (print_traffic)
+          fprintf(stderr, "%02x ", byte);
+
+        if (frame_len == frame_len_max)
+        {
+          fprintf(stderr, "frame_recv() failed: Overflow\n");
+          return -1;
+        }
+
+        frame[frame_len++] = byte;
+
+        if (frame_is_complete(frame, frame_len))
+        {
+          break;
+        }
       }
     }
-    else if (result > 0)
+    else if (select_result == 0)
     {
-      if (print_traffic)
-        fprintf(stderr, "%02x ", byte);
-
-      if (frame_len == frame_len_max)
-      {
-        fprintf(stderr, "frame_recv() failed: Overflow\n");
-        return -1;
-      }
-
-      frame[frame_len++] = byte;
-
-      if (frame_is_complete(frame, frame_len))
+      // Timeout - check if we should shutdown
+      if (!program_running)
       {
         break;
+      }
+      continue;
+    }
+    else if (select_result == -1)
+    {
+      // Error occurred
+      if (errno != EAGAIN && errno != EWOULDBLOCK)
+      {
+        fprintf(stderr, "select() failed: %s\n", strerror(errno));
+        return -1;
       }
     }
 
