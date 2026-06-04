@@ -408,6 +408,90 @@ static int send_isotp(int tty_fd, unsigned long can_id, const uint8_t *payload, 
   return 0;
 }
 
+static int receive_isotp(int tty_fd, unsigned char *frame, int frame_len_max)
+{
+  unsigned char buffer[8];
+  int bytes_read;
+  int total_bytes = 0;
+  int expected_len = 0;
+  int is_single_frame = 1;
+  unsigned char seq = 0;
+  unsigned char expected_seq = 1;
+
+  // Read first frame
+  bytes_read = frame_recv(tty_fd, buffer, sizeof(buffer));
+  if (bytes_read <= 0)
+  {
+    return bytes_read;
+  }
+
+  // Check frame type and extract length
+  if ((buffer[0] & 0xF0) == 0x10)
+  {
+    // First Frame
+    expected_len = ((buffer[0] & 0x0F) << 8) | buffer[1];
+    is_single_frame = 0;
+    total_bytes = bytes_read - 2; // Subtract header bytes
+    memcpy(frame, &buffer[2], total_bytes);
+  }
+  else if ((buffer[0] & 0xF0) == 0x00)
+  {
+    // Single Frame
+    expected_len = buffer[0] & 0x0F;
+    is_single_frame = 1;
+    total_bytes = expected_len;
+    memcpy(frame, &buffer[1], expected_len);
+  }
+  else
+  {
+    // Invalid frame type
+    return -1;
+  }
+
+  // If it's a single frame, return the length
+  if (is_single_frame)
+  {
+    return total_bytes;
+  }
+
+  // For multi-frame messages, continue receiving consecutive frames
+  while (total_bytes < expected_len)
+  {
+    bytes_read = frame_recv(tty_fd, buffer, sizeof(buffer));
+    if (bytes_read <= 0)
+    {
+      return bytes_read;
+    }
+
+    // Check if it's a consecutive frame
+    if ((buffer[0] & 0xF0) == 0x20)
+    {
+      seq = buffer[0] & 0x0F;
+
+      if (seq != expected_seq)
+      {
+        return -1; // Sequence number error
+      }
+
+      int data_len = bytes_read - 1; // Subtract header byte
+      if (data_len > (expected_len - total_bytes))
+      {
+        data_len = expected_len - total_bytes;
+      }
+
+      memcpy(&frame[total_bytes], &buffer[1], data_len);
+      total_bytes += data_len;
+      expected_seq = (expected_seq + 1) & 0x0F;
+    }
+    else
+    {
+      return -1; // Expected consecutive frame, got something else
+    }
+  }
+
+  return total_bytes;
+}
+
 static int adapter_init(const char *tty_device, int baudrate)
 {
   int tty_fd, result;
