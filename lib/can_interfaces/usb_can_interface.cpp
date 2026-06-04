@@ -29,6 +29,5 @@ bool Usb_can_interface::read(uint8_t *p_data, uint32_t len)
 
 void Usb_can_interface::write(uint32_t can_id, uint8_t *p_data, uint32_t len)
 {
-  send_data_frame(m_tty_fd, CANUSB_FRAME::CANUSB_FRAME_EXTENDED, static_cast<unsigned long>(can_id),
-                  reinterpret_cast<unsigned char *>(p_data), len);
+  send_isotp(m_tty_fd, static_cast<unsigned long>(can_id), reinterpret_cast<unsigned char *>(p_data), len);
 }

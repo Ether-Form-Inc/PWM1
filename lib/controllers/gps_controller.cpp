@@ -4,7 +4,7 @@
 
 void GPS_controller::write(CAN_interface &interface, uint32_t can_id, float (&location)[3], bool locked, uint8_t num_satellites)
 {
-  etherform_GPS_Receiver gps{.location = locked, .num_satellites = num_satellites};
+  etherform_GPS_Receiver gps{.locked = locked, .num_satellites = num_satellites};
   memcpy(gps.location, location, 3 * sizeof(float));
   interface.write(can_id, reinterpret_cast<uint8_t *>(&gps), sizeof(etherform_GPS_Receiver));
 }

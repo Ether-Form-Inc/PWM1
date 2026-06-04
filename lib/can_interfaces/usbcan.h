@@ -361,6 +361,53 @@ static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, uns
   return 0;
 }
 
+static int send_isotp(int tty_fd, unsigned long can_id, const uint8_t *payload, size_t len)
+{
+  uint8_t frame[8];
+
+  if (len <= 7)
+  {
+    /* Single Frame */
+    frame[0] = len;
+    memcpy(&frame[1], payload, len);
+
+    return send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, len + 1);
+  }
+
+  /* First Frame */
+  frame[0] = 0x10 | ((len >> 8) & 0x0F);
+  frame[1] = len & 0xFF;
+
+  memcpy(&frame[2], payload, 6);
+
+  send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, 8);
+
+  payload += 6;
+  len -= 6;
+
+  uint8_t seq = 1;
+
+  while (len)
+  {
+    memset(frame, 0, sizeof(frame));
+
+    frame[0] = 0x20 | (seq & 0x0F);
+
+    size_t chunk = (len > 7) ? 7 : len;
+
+    memcpy(&frame[1], payload, chunk);
+
+    send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, chunk + 1);
+
+    payload += chunk;
+    len -= chunk;
+
+    seq = (seq + 1) & 0x0F;
+  }
+
+  return 0;
+}
+
 static int adapter_init(const char *tty_device, int baudrate)
 {
   int tty_fd, result;

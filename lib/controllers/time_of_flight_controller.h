@@ -6,7 +6,7 @@
 
 class CAN_interface;
 
-class Time_of_Flight_contoller
+class Time_of_Flight_controller
 {
   public:
   void write(CAN_interface &interface, uint32_t can_id, float distance);
