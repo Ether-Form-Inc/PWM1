@@ -1,6 +1,5 @@
-#include <can_interfaces/usb_can_interface.h>
 #include <can_interfaces/usbcan.h>
-// #include <dronecan_msgs.h>
+#include <testing_interface/usb_can_interface.h>
 
 Usb_can_interface::Usb_can_interface(const char *tty_device)
     : m_tty_fd(adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))

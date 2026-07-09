@@ -32,6 +32,7 @@ endif()
 
 target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/lib
+  ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
   ${CMAKE_SOURCE_DIR}/messages/compiled
 )
