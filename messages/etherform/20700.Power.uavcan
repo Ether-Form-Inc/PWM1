@@ -1,5 +1,0 @@
-# Voltage in the range 35-75V 
-float16 voltage
-
-# Board temperature
-float16[4] temperature

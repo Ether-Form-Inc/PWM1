@@ -68,20 +68,50 @@ FetchContent_Declare(
 FetchContent_Populate(dsdl)
 
 FetchContent_Declare(
-  libcanard
-  GIT_REPOSITORY https://github.com/dronecan/libcanard.git
-  GIT_TAG "master"
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/libcanard
+  libuavcan
+  GIT_REPOSITORY https://github.com/dronecan/libuavcan.git
+  GIT_TAG "main"
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/libuavcan
 )
-FetchContent_Populate(libcanard)
+FetchContent_Populate(libuavcan)
 
+#execute_process(
+#  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
+#  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl -O ../../messages/compiled ../../messages/etherform
+#  #COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl_compiler 
+#  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
+#  RESULT_VARIABLE compile_messages_result
+#  ERROR_VARIABLE compile_messages_error
+#)
 execute_process(
-  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
-  COMMAND ../venv/bin/python3 dronecan_dsdlc.py -O ../../messages/compiled ../../messages/etherform
+  COMMAND ${CMAKE_COMMAND} -E remove_directory
+          ${CMAKE_SOURCE_DIR}/messages/compiled
+
+  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdlc
+          ${CMAKE_SOURCE_DIR}/messages/etherform
+          -O ${CMAKE_SOURCE_DIR}/messages/compiled
+
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
+
   RESULT_VARIABLE compile_messages_result
   ERROR_VARIABLE compile_messages_error
 )
+
+#if(NOT compile_messages_result EQUAL 0)
+#  message(FATAL_ERROR
+#    "DSDL compilation failed:\n${compile_messages_error}"
+#  )
+#endif()
+#
+#
+
+#execute_process(
+#  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
+#  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl_compiler 
+#  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
+#  RESULT_VARIABLE compile_messages_result
+#  ERROR_VARIABLE compile_messages_error
+#)
 
 if(NOT compile_messages_result EQUAL 0)
   message(FATAL_ERROR

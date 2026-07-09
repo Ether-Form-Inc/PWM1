@@ -32,14 +32,19 @@ endif()
 
 target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/lib
-  ${CMAKE_BINARY_DIR}/libcanard
-  ${CMAKE_SOURCE_DIR}/messages/compiled/include
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
+  ${CMAKE_SOURCE_DIR}/messages/compiled
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
   ${PROJECT_NAME}
+  ${CMAKE_BINARY_DIR}/libuavcan/build/libuavcan/libuavcan.a
   gtest
   gtest_main
 )
 
-enable_testing()
+# Print all linked libraries for a target
+get_target_property(LINK_LIBS ${PROJECT_TEST_NAME} LINK_LIBRARIES)
+message(STATUS "Linked libraries: ${LINK_LIBS}")
+
+#enable_testing()
