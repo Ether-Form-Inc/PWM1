@@ -4,7 +4,7 @@
 // #include <controllers/gps_controller.h>
 // #include <controllers/power_controller.h>
 // #include <controllers/time_of_flight_controller.h>
-#include <can_interfaces/drone_can.h>
+// #include <can_interfaces/drone_can.h>
 #include <can_interfaces/usb_can_interface.h>
 
 constexpr const char *file_descriptor{"/dev/ttyUSB1"};
@@ -18,7 +18,8 @@ TEST(PWM_controller, Read)
   uint16_t message_id{20500};
   uint8_t device_id{1};
 
-  uint32_t can_id{Drone_can::create_id(4, 20500, 1)};
+  // uint32_t can_id{Drone_can::create_id(4, 20500, 1)};
+  uint32_t can_id{};
 
   uint8_t output_port{0};
   uint16_t pulse_width{500};

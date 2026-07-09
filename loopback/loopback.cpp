@@ -1,10 +1,10 @@
-#include <cstring>
-#include <signal.h>
 #include <atomic>
+#include <cstring>
 #include <iostream>
+#include <signal.h>
 
 #include <can_interfaces/usb_can_interface.h>
-#include <can_interfaces/drone_can.h>
+// #include <can_interfaces/drone_can.h>
 #include <can_interfaces/usbcan.h>
 
 class Loopback
@@ -21,8 +21,9 @@ class Loopback
     {
       if (interface.read(frame, sizeof(frame)))
       {
-        uint32_t message_id{Drone_can::get_message_id(frame)};
-        std::cout << "Received message id: " << message_id << std::endl;
+        // uint32_t message_id{Drone_can::get_message_id(frame)};
+        // std::cout << "Received message id: " << message_id << std::endl;
+        std::cout << "mid not impl" << std::endl;
       }
     }
   }
