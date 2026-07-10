@@ -16,6 +16,10 @@ file(GLOB_RECURSE bool_test_files
   ${CMAKE_CURRENT_LIST_DIR}/bool_tests/*.cpp
 )
 
+file(GLOB_RECURSE board_files
+  ${CMAKE_SOURCE_DIR}/board/*.cpp
+)
+
 file(GLOB_RECURSE loopback_test_files 
   ${CMAKE_CURRENT_LIST_DIR}/loopback_test/*.cpp
 )
@@ -25,7 +29,7 @@ file(GLOB_RECURSE testing_interface_files
 )
 
 # ************ Bool Tests ***************
-add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${testing_interface_files})
+add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${testing_interface_files} ${board_files})
 
 target_compile_features(${PROJECT_TEST_NAME} PRIVATE cxx_std_20)
 target_compile_features(${PROJECT_TEST_NAME} PRIVATE cxx_std_20)
@@ -42,6 +46,7 @@ endif()
 
 target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/lib
+  ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
   ${CMAKE_SOURCE_DIR}/messages/compiled
