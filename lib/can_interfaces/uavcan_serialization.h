@@ -1,6 +1,8 @@
 #include <etherform/Pwm.hpp>
 #include <uavcan/transport/transfer_buffer.hpp>
 
+#include <iostream>
+
 // enum TransferType
 //{
 //     TransferTypeServiceResponse  = 0,
@@ -25,6 +27,7 @@ namespace uavcan_serialization
 
     // Encode frame with msg payload and canid
     uavcan::Frame frame(MSG_TYPE::DefaultDataTypeID, type, src, dst, tid);
+    frame.setPayload(buffer, sizeof(MSG_TYPE) - 1); // Omit tail byte
 
     // Increment transfer id
     tid.increment();
@@ -37,3 +40,30 @@ namespace uavcan_serialization
   {
   }
 };
+
+/*while (!rx_queue.empty())
+{
+    uavcan::CanFrame cf = rx_queue.pop();
+
+    uavcan::RxFrame rx_frame(cf, timestamp, iface_index);
+
+    auto result = receiver.addFrame(rx_frame);
+
+    if (result == TransferReceiver::ResultComplete)
+    {
+        const auto& payload = receiver.getPayload();
+
+        uavcan::ScalarCodec codec(
+            payload.begin(),
+            payload.size());
+
+        my_namespace::MyMessage msg;
+
+        if (msg.decode(codec) > 0)
+        {
+            handleMessage(msg);
+        }
+    }
+}
+ *
+ */
