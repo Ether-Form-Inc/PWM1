@@ -1,5 +1,7 @@
+#pragma once
 #include <etherform/Pwm.hpp>
 #include <uavcan/data_type.hpp>
+#include <uavcan/node/node.hpp>
 #include <uavcan/node/subscriber.hpp>
 #include <uavcan/transport/perf_counter.hpp>
 #include <uavcan/transport/transfer_listener.hpp>
@@ -38,7 +40,8 @@ class Can_to_pwm_servo_handler : public uavcan::TransferListener
                                  str_type_name.c_str()};
 
   Dummy_can_driver dummy_driver;
-  // const
+  Dummy_system_clock dummy_clock;
+  const uavcan::Node<20> ownship_node{dummy_driver, dummy_clock};
   // const uavcan::NodeID UAVCAN_NODE_ID{10}; // TODO: Some mechanism to set this
 
   // uavcan::Subscriber<etherform::Pwm> sub_pwm_servo;
