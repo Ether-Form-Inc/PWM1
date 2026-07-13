@@ -20,32 +20,29 @@ enum DataTypeKind
 
 // This class defines how to handle can to pwm messages
 //// TODO: Abstract this handler to an "efi_board_handler"
-class Can_to_pwm_servo_handler : public uavcan::TransferListener
+class Can_to_pwm_servo_handler
 {
-  typedef etherform::Pwm handler_type_t;
+  typedef etherform::Pwm servo_handler_type_t;
+  typedef etherform::Pwm motor_handler_type_t;
 
   public:
   Can_to_pwm_servo_handler(const bool is_servo);
   ~Can_to_pwm_servo_handler();
 
-  virtual void handleIncomingTransfer(uavcan::IncomingTransfer &transfer) override;
+  void handle_servo(const ReceivedDataStructure<servo_handler_type_t> &data);
+
+  void handle_motor(const ReceivedDataStructure<motor_handler_type_t> &data);
+
+  void init();
 
   private:
-  static constexpr uint16_t max_buffs{100};
-  uavcan::PoolAllocator<10 * max_buffs, max_buffs> pool_allocator;
-  uavcan::TransferPerfCounter perf;
-  const uavcan::DataTypeSignature sig;
-  const std::string str_type_name{"Servo_handler"};
-  uavcan::DataTypeDescriptor dtd{uavcan::DataTypeKindMessage, handler_type_t::DefaultDataTypeID, sig,
-                                 str_type_name.c_str()};
-
+  bool m_is_servo{true};
   Dummy_can_driver dummy_driver;
   Dummy_system_clock dummy_clock;
-  const uavcan::Node<20> ownship_node{dummy_driver, dummy_clock};
-  // const uavcan::NodeID UAVCAN_NODE_ID{10}; // TODO: Some mechanism to set this
+  uavcan::Node<20> ownship_node{dummy_driver, dummy_clock};
 
-  // uavcan::Subscriber<etherform::Pwm> sub_pwm_servo;
-  // uavcan::Subscriber<etherform::Pwm> sub_pwm_motor;
+  uavcan::Subscriber<etherform::Pwm> sub_pwm_servo;
+  uavcan::Subscriber<etherform::Pwm> sub_pwm_motor;
 };
 
 /// TODO:

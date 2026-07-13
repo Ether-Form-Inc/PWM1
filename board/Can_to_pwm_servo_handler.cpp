@@ -1,9 +1,9 @@
 #include <Can_to_pwm_servo_handler.h>
 
 Can_to_pwm_servo_handler::Can_to_pwm_servo_handler(const bool is_servo)
-    : TransferListener(perf, dtd, max_buffs, pool_allocator)
-//, sub_pwm_servo(staticUAVCAN_NODE_ID)
-//, sub_pwm_motor(UAVCAN_NODE_ID)
+    : m_is_servo(is_servo)
+    , sub_pwm_servo(ownship_node)
+    , sub_pwm_motor(ownship_node)
 {
 }
 
@@ -11,11 +11,20 @@ Can_to_pwm_servo_handler::~Can_to_pwm_servo_handler()
 {
 }
 
-void Can_to_pwm_servo_handler::handleIncomingTransfer(uavcan::IncomingTransfer &transfer)
+void Can_to_pwm_servo_handler::handle_servo(const ReceivedDataStructure<servo_handler_type_t> &data)
 {
-  constexpr uint32_t payload_size_bytes{(handler_type_t::MaxBitLen + 1) / 8};
-  uint8_t buffer[payload_size_bytes];
-  transfer.read(0, buffer, payload_size_bytes);
+}
 
-  etherform::Pwm *pwm{reinterpret_cast<etherform::Pwm *>(buffer)};
+void Can_to_pwm_servo_handler::handle_motor(const ReceivedDataStructure<motor_handler_type_t> &data)
+{
+}
+
+void Can_to_pwm_servo_handler::init()
+{
+  if (m_is_servo)
+  {
+    std::function<void(const ReceivedDataStructure<servo_handler_type_t> &)> servo_func = [this](const auto &data)
+    { this->handle_servo(data); };
+    sub_pwm_servo.start(servo_func);
+  }
 }
