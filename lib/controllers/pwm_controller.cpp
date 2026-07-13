@@ -53,7 +53,9 @@ void PWM_controller::write(CAN_interface &interface, uint32_t can_id, uint8_t ou
   // TODO: Set priority (frame.setPriority(TransferPriority))
 
   std::cout << "ID: " << can_frame.id << std::endl;
-  std::cout << "TID: " << (int)f.getTransferID().get() << " " << (int)f2.getTransferID().get() << std::endl;
+  std::cout << "Data: " << (int)can_frame.data[0] << " " << (int)can_frame.data[1] << " " << (int)can_frame.data[2]
+            << std::endl;
+  // std::cout << "TID: " << (int)f.getTransferID().get() << " " << (int)f2.getTransferID().get() << std::endl;
 
   // std::cout << "Valid: " << f2.isValid() << std::endl;
   // std::cout << "Ids: " << cf2.id << " " << cf.id << std::endl;
