@@ -1,8 +1,11 @@
 #include <uavcan/data_type.hpp>
+#include <uavcan/driver/can.hpp>
 #include <uavcan/node/node.hpp>
 #include <uavcan/node/subscriber.hpp>
 #include <uavcan/transport/perf_counter.hpp>
 #include <uavcan/transport/transfer_listener.hpp>
+
+using namespace uavcan;
 
 template <typename CAN_IF, typename SYS_CLK> class ICan_translator
 {

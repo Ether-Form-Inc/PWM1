@@ -3,8 +3,8 @@
 
 #include <testing_interface/usb_can_interface.h>
 
-#include "dummy_can_interface.h"
 #include <Can_to_pwm_translator.h>
+#include <dummy_can_interface.h>
 
 constexpr const char *file_descriptor{"/dev/ttyUSB1"};
 

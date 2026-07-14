@@ -49,12 +49,13 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_translator
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
-  ${PROJECT_NAME}
+  #${PROJECT_NAME}
   ${CMAKE_BINARY_DIR}/libuavcan/build/libuavcan/libuavcan.a
   gtest
   gtest_main
@@ -75,6 +76,6 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests
 )
 
-target_link_libraries(${PROJECT_LOOPBACK} PRIVATE
-  ${PROJECT_NAME}
-)
+#target_link_libraries(${PROJECT_LOOPBACK} PRIVATE
+#  ${PROJECT_NAME}
+#)

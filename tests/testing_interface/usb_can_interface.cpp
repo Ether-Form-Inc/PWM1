@@ -1,5 +1,5 @@
-#include <can_interfaces/usbcan.h>
 #include <testing_interface/usb_can_interface.h>
+#include <testing_interface/usbcan.h>
 
 Usb_can_interface::Usb_can_interface(const char *tty_device)
     : m_tty_fd(adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))

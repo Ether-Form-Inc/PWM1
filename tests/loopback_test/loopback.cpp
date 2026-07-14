@@ -4,8 +4,7 @@
 #include <signal.h>
 
 #include <testing_interface/usb_can_interface.h>
-// #include <can_interfaces/drone_can.h>
-#include <can_interfaces/usbcan.h>
+#include <testing_interface/usbcan.h>
 
 class Loopback
 {
