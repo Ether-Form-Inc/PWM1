@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <thread>
 
-#include <controllers/pwm_controller.h>
 #include <testing_interface/usb_can_interface.h>
 
 #include "dummy_can_interface.h"
