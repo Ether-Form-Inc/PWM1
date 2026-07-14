@@ -1,3 +1,7 @@
+// libuavcan utilizes enum arithmetic
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
+
 #include <ICan_translator.h>
 #include <etherform/Pwm.hpp>
 
@@ -15,7 +19,6 @@ template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : publi
       , sub_pwm_servo(Base::m_ownship_node)
       , sub_pwm_motor(Base::m_ownship_node)
       , m_is_servo(is_servo)
-
   {
   }
 
@@ -53,3 +56,4 @@ template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : publi
 
   bool m_is_servo{true};
 };
+#pragma GCC diagnostic pop
