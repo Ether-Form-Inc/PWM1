@@ -61,6 +61,10 @@ target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
   gtest_main
 )
 
+target_compile_definitions(${PROJECT_TEST_NAME} PRIVATE
+    UAVCAN_CPP_VERSION=UAVCAN_CPP11
+)
+
 # Print all linked libraries for a target
 get_target_property(LINK_LIBS ${PROJECT_TEST_NAME} LINK_LIBRARIES)
 message(STATUS "Linked libraries: ${LINK_LIBS}")
