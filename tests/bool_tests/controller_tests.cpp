@@ -1,17 +1,18 @@
 #include <gtest/gtest.h>
+#include <thread>
 
 #include <Can_to_pwm_servo_handler.h>
 #include <controllers/pwm_controller.h>
 #include <testing_interface/usb_can_interface.h>
 
+#include "dummy_can_interface.h"
+#include <Can_to_pwm_translator.h>
+
 constexpr const char *file_descriptor{"/dev/ttyUSB1"};
 
 TEST(PWM_controller, Read)
 {
-  Can_to_pwm_servo_handler c_hand{true};
-
-  c_hand.init();
-  c_hand.queue_receive();
-  c_hand.queue_receive();
+  Can_to_pwm_translator<Dummy_can_iface, Dummy_system_clock> c_hand{true, 1, 10};
+  c_hand.initialize();
   c_hand.queue_receive();
 }

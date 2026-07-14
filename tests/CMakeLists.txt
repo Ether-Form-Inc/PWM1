@@ -50,6 +50,7 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
   ${CMAKE_SOURCE_DIR}/messages/compiled
+  ${CMAKE_SOURCE_DIR}/efi_can_translator
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE

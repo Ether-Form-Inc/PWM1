@@ -19,7 +19,7 @@ class Dummy_can_iface : public ICanIface
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
-    std::cout << "Sent" << std::endl;
+    std::cout << "Sent node id: " << (frame.id & 0xff) << std::endl;
     return sizeof(frame);
   }
 

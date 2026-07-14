@@ -15,25 +15,6 @@ Can_to_pwm_servo_handler::Can_to_pwm_servo_handler(const bool is_servo)
   uavcan::protocol::HardwareVersion hw_version;
   hw_version.major = 1;
   ownship_node.setHardwareVersion(hw_version);
-
-  int node_start_res;
-  if (m_is_servo)
-  {
-    node_start_res = ownship_node.start({10});
-  }
-  else
-  {
-    node_start_res = ownship_node.start({0});
-  }
-
-  if (node_start_res < 0)
-  {
-    std::cerr << "Failed to start the node; error: " + node_start_res << std::endl;
-  }
-  else
-  {
-    ownship_node.setModeOperational();
-  }
 }
 
 Can_to_pwm_servo_handler::~Can_to_pwm_servo_handler()
@@ -55,6 +36,25 @@ void Can_to_pwm_servo_handler::init()
     std::function<void(const ReceivedDataStructure<servo_handler_type_t> &)> servo_func = [this](const auto &data)
     { this->handle_servo(data); };
     sub_pwm_servo.start(servo_func);
+  }
+
+  int node_start_res;
+  if (m_is_servo)
+  {
+    node_start_res = ownship_node.start({25});
+  }
+  else
+  {
+    node_start_res = ownship_node.start({0});
+  }
+
+  if (node_start_res < 0)
+  {
+    std::cerr << "Failed to start the node; error: " + node_start_res << std::endl;
+  }
+  else
+  {
+    ownship_node.setModeOperational();
   }
 }
 
