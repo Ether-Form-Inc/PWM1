@@ -86,6 +86,8 @@ class Dummy_system_clock : public uavcan::ISystemClock
   {
   }
 
+  virtual ~Dummy_system_clock() override = default;
+
   uavcan::MonotonicTime getMonotonic() const override
   {
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start_).count();

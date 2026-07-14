@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <Can_to_pwm_servo_handler.h>
 #include <controllers/pwm_controller.h>
 #include <testing_interface/usb_can_interface.h>
 
@@ -7,21 +8,10 @@ constexpr const char *file_descriptor{"/dev/ttyUSB1"};
 
 TEST(PWM_controller, Read)
 {
-  PWM_controller controller;
-  Usb_can_interface interface{file_descriptor};
+  Can_to_pwm_servo_handler c_hand{true};
 
-  uint8_t priority{0};
-  uint16_t message_id{20500};
-  uint8_t device_id{1};
-
-  // uint32_t can_id{Drone_can::create_id(4, 20500, 1)};
-  uint32_t can_id{};
-
-  uint8_t output_port{0};
-  uint16_t pulse_width{500};
-
-  controller.write(interface, can_id, output_port, pulse_width);
-
-  // etherform_Pwm pwm{controller.read(interface)};
-  // ASSERT_EQ(pwm.pulse_width, pulse_width);
+  c_hand.init();
+  c_hand.queue_receive();
+  c_hand.queue_receive();
+  c_hand.queue_receive();
 }

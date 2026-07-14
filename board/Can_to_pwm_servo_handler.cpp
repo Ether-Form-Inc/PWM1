@@ -1,5 +1,7 @@
 #include <Can_to_pwm_servo_handler.h>
 
+#include <iostream>
+
 Can_to_pwm_servo_handler::Can_to_pwm_servo_handler(const bool is_servo)
     : m_is_servo(is_servo)
     , sub_pwm_servo(ownship_node)
@@ -27,4 +29,9 @@ void Can_to_pwm_servo_handler::init()
     { this->handle_servo(data); };
     sub_pwm_servo.start(servo_func);
   }
+}
+
+void Can_to_pwm_servo_handler::queue_receive()
+{
+  ownship_node.spinOnce();
 }

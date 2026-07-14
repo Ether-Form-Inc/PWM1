@@ -35,11 +35,16 @@ class Can_to_pwm_servo_handler
 
   void init();
 
+  void queue_receive();
+
   private:
   bool m_is_servo{true};
-  Dummy_can_driver dummy_driver;
-  Dummy_system_clock dummy_clock;
-  uavcan::Node<20> ownship_node{dummy_driver, dummy_clock};
+  Dummy_can_driver dummy_driver{};
+  Dummy_system_clock dummy_clock{};
+
+  // Size = num_can_if * ( sum of all subscriptions{num_pub_senders * sizeof(rcvd_serialized_pub_type)} + sum of all
+  // pubs{3 * sizeof(send_serialied_pub_type)} ) (On order of 3000
+  uavcan::Node<1024> ownship_node{dummy_driver, dummy_clock}; // Round up to mults of 64
 
   uavcan::Subscriber<etherform::Pwm> sub_pwm_servo;
   uavcan::Subscriber<etherform::Pwm> sub_pwm_motor;
