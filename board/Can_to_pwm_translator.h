@@ -1,4 +1,5 @@
 #include <ICan_translator.h>
+#include <etherform/Pwm.hpp>
 
 template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : public ICan_translator<CAN_IF, SYS_CLK>
 {

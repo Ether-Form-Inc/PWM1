@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <thread>
 
-#include <Can_to_pwm_servo_handler.h>
 #include <controllers/pwm_controller.h>
 #include <testing_interface/usb_can_interface.h>
 
