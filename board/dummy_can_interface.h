@@ -20,7 +20,7 @@ class Dummy_can_iface : public ICanIface
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
     std::cout << "Sent" << std::endl;
-    return 0;
+    return sizeof(frame);
   }
 
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
