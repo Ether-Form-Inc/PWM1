@@ -3,12 +3,13 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
 
 #include <ICan_translator.h>
-#include <etherform/Pwm.hpp>
+#include <uavcan/equipment/actuator/ArrayCommand.hpp>
+#include <uavcan/equipment/esc/RawCommand.hpp>
 
 template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : public ICan_translator<CAN_IF, SYS_CLK>
 {
-  typedef etherform::Pwm servo_handler_type_t;
-  typedef etherform::Pwm motor_handler_type_t;
+  typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
+  typedef uavcan::equipment::esc::RawCommand motor_handler_type_t;
 
   typedef ICan_translator<CAN_IF, SYS_CLK> Base;
 
@@ -51,8 +52,8 @@ template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : publi
   }
 
   private:
-  uavcan::Subscriber<etherform::Pwm> sub_pwm_servo;
-  uavcan::Subscriber<etherform::Pwm> sub_pwm_motor;
+  uavcan::Subscriber<servo_handler_type_t> sub_pwm_servo;
+  uavcan::Subscriber<motor_handler_type_t> sub_pwm_motor;
 
   bool m_is_servo{true};
 };
