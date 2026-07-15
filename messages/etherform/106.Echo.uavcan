@@ -1,0 +1,7 @@
+# Echo message
+uint8[<6] sent_message
+
+---
+
+#Response message
+uint8[<6] rsp_message

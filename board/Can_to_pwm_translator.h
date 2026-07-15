@@ -51,6 +51,10 @@ template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : publi
     }
   }
 
+  void custom_broadcast() override
+  {
+  }
+
   private:
   uavcan::Subscriber<servo_handler_type_t> sub_pwm_servo;
   uavcan::Subscriber<motor_handler_type_t> sub_pwm_motor;
