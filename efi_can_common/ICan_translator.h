@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <uavcan/data_type.hpp>
 #include <uavcan/driver/can.hpp>
 #include <uavcan/node/node.hpp>

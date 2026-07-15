@@ -1,3 +1,4 @@
+set(PROJECT_CLI_APP ${PROJECT_NAME}_CLI)
 set(PROJECT_TEST_NAME ${PROJECT_NAME}_tests)
 set(PROJECT_LOOPBACK ${PROJECT_NAME}_loopback_test)
 
@@ -55,6 +56,10 @@ file(GLOB_RECURSE testing_interface_files
   ${CMAKE_CURRENT_LIST_DIR}/testing_interface/*.cpp
 )
 
+file(GLOB_RECURSE cli_files 
+  ${CMAKE_CURRENT_LIST_DIR}/cli_app/*.cpp
+)
+
 # ************ Bool Tests ***************
 add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${testing_interface_files} ${board_files})
 
@@ -72,7 +77,6 @@ if (COVERAGE_ENABLED)
 endif()
 
 target_include_directories(${PROJECT_TEST_NAME} PRIVATE
-  ${CMAKE_SOURCE_DIR}/lib
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
@@ -115,3 +119,24 @@ target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
 #target_link_libraries(${PROJECT_LOOPBACK} PRIVATE
 #  ${PROJECT_NAME}
 #)
+
+# ********** CLI APP *****************
+add_executable(${PROJECT_CLI_APP} ${cli_files} ${board_files})
+
+target_include_directories(${PROJECT_CLI_APP} PRIVATE
+  ${CMAKE_SOURCE_DIR}/board
+  ${CMAKE_SOURCE_DIR}/tests
+  ${CMAKE_SOURCE_DIR}/tests/cli_app
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
+  ${CMAKE_SOURCE_DIR}/messages/compiled
+  ${CMAKE_SOURCE_DIR}/efi_can_common
+)
+
+target_compile_definitions(${PROJECT_CLI_APP} PRIVATE
+    UAVCAN_CPP_VERSION=UAVCAN_CPP11
+)
+
+target_link_libraries(${PROJECT_CLI_APP} PRIVATE
+  uavcan
+)
