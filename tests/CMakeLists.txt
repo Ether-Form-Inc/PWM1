@@ -78,7 +78,7 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_translator
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
