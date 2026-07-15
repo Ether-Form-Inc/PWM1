@@ -107,18 +107,22 @@ add_executable(${PROJECT_LOOPBACK} ${loopback_test_files} ${testing_interface_fi
 message(${testing_interface_files})
 
 target_include_directories(${PROJECT_LOOPBACK} PRIVATE
+  ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
+  ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
   ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
+  ${CMAKE_SOURCE_DIR}/messages/compiled
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
     UAVCAN_CPP_VERSION=UAVCAN_CPP11
 )
 
-#target_link_libraries(${PROJECT_LOOPBACK} PRIVATE
-#  ${PROJECT_NAME}
-#)
+target_link_libraries(${PROJECT_LOOPBACK} PRIVATE
+  uavcan
+)
 
 # ********** CLI APP *****************
 add_executable(${PROJECT_CLI_APP} ${cli_files} ${board_files})
