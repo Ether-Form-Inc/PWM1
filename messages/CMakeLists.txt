@@ -75,14 +75,6 @@ FetchContent_Declare(
 )
 FetchContent_Populate(libuavcan)
 
-#execute_process(
-#  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
-#  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl -O ../../messages/compiled ../../messages/etherform
-#  #COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl_compiler 
-#  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
-#  RESULT_VARIABLE compile_messages_result
-#  ERROR_VARIABLE compile_messages_error
-#)
 execute_process(
   COMMAND ${CMAKE_COMMAND} -E remove_directory
           ${CMAKE_SOURCE_DIR}/messages/compiled
@@ -97,21 +89,6 @@ execute_process(
   ERROR_VARIABLE compile_messages_error
 )
 
-#if(NOT compile_messages_result EQUAL 0)
-#  message(FATAL_ERROR
-#    "DSDL compilation failed:\n${compile_messages_error}"
-#  )
-#endif()
-#
-#
-
-#execute_process(
-#  COMMAND rm -rf ${CMAKE_SOURCE_DIR}/messages/compiled
-#  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdl_compiler 
-#  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dsdlc
-#  RESULT_VARIABLE compile_messages_result
-#  ERROR_VARIABLE compile_messages_error
-#)
 
 if(NOT compile_messages_result EQUAL 0)
   message(FATAL_ERROR

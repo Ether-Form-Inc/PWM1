@@ -12,6 +12,33 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(gtest)
 
+#***************** Build UAVCAN target **************
+#libuavcan has some cmake warnings here regarding python so we suppress them for this project
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+libuavcan
+GIT_REPOSITORY https://github.com/dronecan/libuavcan.git
+GIT_TAG main
+)
+
+FetchContent_MakeAvailable(libuavcan)
+
+add_subdirectory(
+    ${libuavcan_SOURCE_DIR}
+    ${libuavcan_BINARY_DIR}
+    SYSTEM
+)
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS OFF CACHE BOOL "" FORCE)
+
+if(TARGET uavcan)
+    message(STATUS "uavcan target exists")
+else()
+    message(FATAL_ERROR "uavcan target does not exist")
+endif()
+
+#************* Import source files ****************
+
 file(GLOB_RECURSE bool_test_files 
   ${CMAKE_CURRENT_LIST_DIR}/bool_tests/*.cpp
 )
@@ -55,8 +82,7 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
-  #${PROJECT_NAME}
-  ${CMAKE_BINARY_DIR}/libuavcan/build/libuavcan/libuavcan.a
+  uavcan
   gtest
   gtest_main
 )
