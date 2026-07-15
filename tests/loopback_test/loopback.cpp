@@ -9,23 +9,23 @@
 class Loopback
 {
   public:
-  void start()
-  {
-    std::cout << "Loopback running press ctrl-c to shutdown." << std::endl;
+  // void start()
+  //{
+  //   std::cout << "Loopback running press ctrl-c to shutdown." << std::endl;
 
-    Usb_can_interface interface{"/dev/ttyUSB2"};
-    uint8_t frame[MAX_FRAME_SIZE]; // Max frame size?
+  //  Usb_can_interface interface{"/dev/ttyUSB2"};
+  //  uint8_t frame[MAX_FRAME_SIZE]; // Max frame size?
 
-    while (m_running)
-    {
-      // if (interface.read(frame, sizeof(frame)))
-      {
-        // uint32_t message_id{Drone_can::get_message_id(frame)};
-        // std::cout << "Received message id: " << message_id << std::endl;
-        std::cout << "mid not impl" << std::endl;
-      }
-    }
-  }
+  //  while (m_running)
+  //  {
+  //    // if (interface.read(frame, sizeof(frame)))
+  //    {
+  //      // uint32_t message_id{Drone_can::get_message_id(frame)};
+  //      // std::cout << "Received message id: " << message_id << std::endl;
+  //      std::cout << "mid not impl" << std::endl;
+  //    }
+  //  }
+  //}
 
   void stop()
   {
@@ -53,7 +53,8 @@ static void register_signal_receiver()
 
 int main()
 {
+  // Initialize
   register_signal_receiver();
-  l.start();
+  // l.start();
   return 0;
 }

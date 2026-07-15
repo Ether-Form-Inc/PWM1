@@ -1,13 +1,15 @@
 #include <Pwm_commander.h>
 #include <dummy_can_interface.h>
+#include <testing_interface/usb_can_interface.h>
 
 #include <cstdint>
 #include <iostream>
 
+inline constexpr char tty0[] = "/dev/ttyUSB0";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Dummy_can_iface, Dummy_system_clock> c_hand{true, 1, 10};
+  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_hand{true, 1, 10};
   c_hand.initialize();
 
   std::cout << "Etherform CLI CAN-PWM interface. Copyright 2026." << std::endl;
