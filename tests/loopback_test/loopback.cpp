@@ -18,7 +18,7 @@ class Loopback
 
     while (m_running)
     {
-      if (interface.read(frame, sizeof(frame)))
+      // if (interface.read(frame, sizeof(frame)))
       {
         // uint32_t message_id{Drone_can::get_message_id(frame)};
         // std::cout << "Received message id: " << message_id << std::endl;

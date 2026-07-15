@@ -104,6 +104,12 @@ message(${testing_interface_files})
 
 target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
+  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
+)
+
+target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
+    UAVCAN_CPP_VERSION=UAVCAN_CPP11
 )
 
 #target_link_libraries(${PROJECT_LOOPBACK} PRIVATE

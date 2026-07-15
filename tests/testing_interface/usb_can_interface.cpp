@@ -17,16 +17,28 @@ Usb_can_interface::~Usb_can_interface()
   }
 }
 
-bool Usb_can_interface::read(uint8_t *p_data, uint32_t len)
+int16_t Usb_can_interface::receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
+                                   CanIOFlags &out_flags)
+// bool Usb_can_interface::read(uint8_t *p_data, uint32_t len)
 {
-  if (frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len) >= 0)
-  {
-    return true;
-  }
-  return false;
+  // TODO: Handle flags and time
+  uint32_t len{12}; // (8 bytes data + 4 bytes header?)
+  uint8_t *p_data{out_frame.data};
+
+  return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
+  // if (frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len) >= 0)
+  //{
+  //   return true;
+  // }
+  // return false;
 }
 
-void Usb_can_interface::write(uint32_t can_id, uint8_t *p_data, uint32_t len)
+int16_t Usb_can_interface::send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags)
+// void Usb_can_interface::write(uint32_t can_id, uint8_t *p_data, uint32_t len)
 {
-  send_isotp(m_tty_fd, static_cast<unsigned long>(can_id), reinterpret_cast<unsigned char *>(p_data), len);
+  const uint8_t *p_data{frame.data};
+  uint32_t can_id{frame.id};
+  uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)}; // (8 bytes data + 4 bytes header?)
+  // TODO: Handle flags and time
+  send_isotp(m_tty_fd, static_cast<unsigned long>(can_id), p_data, len);
 }
