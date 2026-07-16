@@ -104,7 +104,6 @@ message(STATUS "Linked libraries: ${LINK_LIBS}")
 
 # ************ Loopback Tests ***************
 add_executable(${PROJECT_LOOPBACK} ${loopback_test_files} ${testing_interface_files})
-message(${testing_interface_files})
 
 target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/board

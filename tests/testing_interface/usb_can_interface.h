@@ -28,11 +28,14 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
                   CanIOFlags &out_flags) override
   {
+    out_flags = 0;
+
     // TODO: Handle flags and time
-    uint32_t len{12}; // (8 bytes data + 4 bytes header?)
+    uint32_t len{120}; // (8 bytes data + 4 bytes header?)
     uint8_t *p_data{out_frame.data};
 
-    return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
+    return 0;
+    // return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
   }
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
@@ -41,8 +44,10 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     uint32_t can_id{frame.id};
     uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)}; // (8 bytes data + 4 bytes header?)
 
-    // TODO: Handle flags and time
-    return send_isotp(m_tty_fd, static_cast<unsigned long>(can_id), p_data, len);
+    return send_data_frame(m_tty_fd, CANUSB_FRAME_EXTENDED, can_id, p_data, len);
+    // return frame_send(m_tty_fd, p_data,
+    //  TODO: Handle flags and time
+    // return send_isotp(m_tty_fd, static_cast<unsigned long>(can_id), p_data, len);
   }
 
   int16_t configureFilters(const CanFilterConfig *filter_configs, uint16_t num_configs) override

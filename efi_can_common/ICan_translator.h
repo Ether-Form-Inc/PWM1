@@ -1,4 +1,5 @@
-#include <iostream>
+#pragma once
+#include <iostream> // TODO: not great for STM
 
 #include <uavcan/data_type.hpp>
 #include <uavcan/driver/can.hpp>
@@ -64,7 +65,7 @@ template <typename CAN_IF, typename SYS_CLK> class ICan_translator
 
   void main()
   {
-    while (1)
+    while (1) // TODO: stoppable interface for ut?
     {
       queue_receive();
 

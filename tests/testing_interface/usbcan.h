@@ -138,7 +138,8 @@ static int frame_is_complete(const unsigned char *frame, int frame_len)
       return 0;
     }
   }
-  else if (((frame[1] >> 4) & 0xc) == 0xc)
+  // else if (((frame[1] >> 4) & 0xc) == 0xc)
+  else if ((frame[1] & 0xc0) == 0xc0)
   { /* Data frame... */
     if (frame_len >= (frame[1] & 0xf) + 7)
     { /* ...payload and 5 bytes. */
@@ -313,9 +314,13 @@ static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CA
   return 0;
 }
 
-static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, unsigned char data[], int data_length_code)
+// The USB2CAN device converts a UART message to CAN on device.
+static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, const unsigned char data[],
+                           int data_length_code)
 {
-  int data_frame_len = 0;
+  int data_frame_len = 4;
+
+  // Build array with all zeros
   unsigned char data_frame[MAX_FRAME_SIZE] = {0x00};
 
   if (data_length_code < 0 || data_length_code > 8)
@@ -324,33 +329,41 @@ static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, uns
     return -1;
   }
 
+  /******************* UART Settings *****************/
+  // This byte is inserted for the uart rcvr to recognize the data as valid after this byte
   /* Byte 0: Packet Start */
-  data_frame[data_frame_len++] = 0xaa;
+  data_frame[0] = 0xaa;
 
   /* Byte 1: CAN Bus Data Frame Information */
-  data_frame[data_frame_len] = 0x00;
-  data_frame[data_frame_len] |= 0xC0; /* Bit 7 Always 1, Bit 6 Always 1 */
-  if (frame == CANUSB_FRAME_STANDARD)
-    data_frame[data_frame_len] &= 0xDF;           /* STD frame */
-  else                                            /* CANUSB_FRAME_EXTENDED */
-    data_frame[data_frame_len] |= 0x20;           /* EXT frame */
-  data_frame[data_frame_len] &= 0xEF;             /* 0=Data */
-  data_frame[data_frame_len] |= data_length_code; /* DLC=data_len */
-  data_frame_len++;
+  data_frame[1] |= 0xC0; /* Bit 7 Always 1, Bit 6 Always 1 */
 
+  // Set extended/standard can frame
+  if (frame == CANUSB_FRAME_STANDARD)
+    data_frame[1] &= 0xDF; /* STD frame */
+  else                     /* CANUSB_FRAME_EXTENDED */
+    data_frame[1] |= 0x20; /* EXT frame */
+
+  data_frame[1] &= 0xEF;             /* 0=Data */
+  data_frame[1] |= data_length_code; /* DLC=data_len */
+
+  /******************* CAN Frame Settings *****************/
   /* Byte 2 to 3: ID */
-  data_frame[data_frame_len++] = id & 0xFF;        /* lsb */
-  data_frame[data_frame_len++] = (id >> 8) & 0xFF; /* msb */
+  data_frame[2] = id & 0xFF;        /* lsb */
+  data_frame[3] = (id >> 8) & 0xFF; /* msb */
+  data_frame_len = 4;
   if (frame == CANUSB_FRAME_EXTENDED)
   {
     /* Byte 4 to 5: Extended ID */
-    data_frame[data_frame_len++] = (id >> 16) & 0xFF;
-    data_frame[data_frame_len++] = (id >> 24) & 0xFF;
+    data_frame[4] = (id >> 16) & 0xFF;
+    data_frame[5] = (id >> 24) & 0xFF;
+    data_frame_len = 6;
   }
 
   /* Byte 4 or 6 and on: Data */
   for (int i = 0; i < data_length_code; i++)
+  {
     data_frame[data_frame_len++] = data[i];
+  }
 
   /* Last byte: End of frame */
   data_frame[data_frame_len++] = 0x55;
@@ -362,137 +375,6 @@ static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, uns
   }
 
   return 0;
-}
-
-static int send_isotp(int tty_fd, unsigned long can_id, const uint8_t *payload, size_t len)
-{
-  uint8_t frame[8];
-
-  if (len <= 7)
-  {
-    /* Single Frame */
-    frame[0] = len;
-    memcpy(&frame[1], payload, len);
-
-    return send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, len + 1);
-  }
-
-  /* First Frame */
-  frame[0] = 0x10 | ((len >> 8) & 0x0F);
-  frame[1] = len & 0xFF;
-
-  memcpy(&frame[2], payload, 6);
-
-  send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, 8);
-
-  payload += 6;
-  len -= 6;
-
-  uint8_t seq = 1;
-
-  while (len)
-  {
-    memset(frame, 0, sizeof(frame));
-
-    frame[0] = 0x20 | (seq & 0x0F);
-
-    size_t chunk = (len > 7) ? 7 : len;
-
-    memcpy(&frame[1], payload, chunk);
-
-    send_data_frame(tty_fd, CANUSB_FRAME_EXTENDED, can_id, frame, chunk + 1);
-
-    payload += chunk;
-    len -= chunk;
-
-    seq = (seq + 1) & 0x0F;
-  }
-
-  return 0;
-}
-
-static int receive_isotp(int tty_fd, unsigned char *frame, int frame_len_max)
-{
-  unsigned char buffer[8];
-  int bytes_read;
-  int total_bytes = 0;
-  int expected_len = 0;
-  int is_single_frame = 1;
-  unsigned char seq = 0;
-  unsigned char expected_seq = 1;
-
-  // Read first frame
-  bytes_read = frame_recv(tty_fd, buffer, sizeof(buffer));
-  if (bytes_read <= 0)
-  {
-    return bytes_read;
-  }
-
-  // Check frame type and extract length
-  if ((buffer[0] & 0xF0) == 0x10)
-  {
-    // First Frame
-    expected_len = ((buffer[0] & 0x0F) << 8) | buffer[1];
-    is_single_frame = 0;
-    total_bytes = bytes_read - 2; // Subtract header bytes
-    memcpy(frame, &buffer[2], total_bytes);
-  }
-  else if ((buffer[0] & 0xF0) == 0x00)
-  {
-    // Single Frame
-    expected_len = buffer[0] & 0x0F;
-    is_single_frame = 1;
-    total_bytes = expected_len;
-    memcpy(frame, &buffer[1], expected_len);
-  }
-  else
-  {
-    // Invalid frame type
-    return -1;
-  }
-
-  // If it's a single frame, return the length
-  if (is_single_frame)
-  {
-    return total_bytes;
-  }
-
-  // For multi-frame messages, continue receiving consecutive frames
-  while (total_bytes < expected_len)
-  {
-    bytes_read = frame_recv(tty_fd, buffer, sizeof(buffer));
-    if (bytes_read <= 0)
-    {
-      return bytes_read;
-    }
-
-    // Check if it's a consecutive frame
-    if ((buffer[0] & 0xF0) == 0x20)
-    {
-      seq = buffer[0] & 0x0F;
-
-      if (seq != expected_seq)
-      {
-        return -1; // Sequence number error
-      }
-
-      int data_len = bytes_read - 1; // Subtract header byte
-      if (data_len > (expected_len - total_bytes))
-      {
-        data_len = expected_len - total_bytes;
-      }
-
-      memcpy(&frame[total_bytes], &buffer[1], data_len);
-      total_bytes += data_len;
-      expected_seq = (expected_seq + 1) & 0x0F;
-    }
-    else
-    {
-      return -1; // Expected consecutive frame, got something else
-    }
-  }
-
-  return total_bytes;
 }
 
 static int adapter_init(const char *tty_device, int baudrate)
