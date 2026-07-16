@@ -138,11 +138,22 @@ static int frame_is_complete(const unsigned char *frame, int frame_len)
       return 0;
     }
   }
-  // else if (((frame[1] >> 4) & 0xc) == 0xc)
-  else if ((frame[1] & 0xc0) == 0xc0)
+  else if ((frame[1] & 0xe0) == 0xc0)
   { /* Data frame... */
-    if (frame_len >= (frame[1] & 0xf) + 7)
+    if (frame_len >= (frame[1] & 0xf) + 5)
     { /* ...payload and 5 bytes. */
+      return 1;
+    }
+    else
+    {
+      return 0;
+    }
+  }
+  else if ((frame[1] & 0xe0) == 0xe0)
+  {
+    // Extended can frame has 2 extra bytes
+    if (frame_len >= (frame[1] & 0xf) + 7)
+    { /* ...payload and 7 bytes. */
       return 1;
     }
     else
