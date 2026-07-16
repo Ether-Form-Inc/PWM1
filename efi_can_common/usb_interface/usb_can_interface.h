@@ -25,7 +25,7 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     }
     else
     {
-      std::cout << "Failed to close" << std::endl;
+      std::cerr << "Failed to close" << std::endl;
     }
   }
 

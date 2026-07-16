@@ -35,8 +35,6 @@ target_include_directories(${PROJECT_EFI_COMMON_TEST} PRIVATE
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 #  ${PROJECT_EFI_COMMON}
-#  #gtest
-#  #gtest_main
 )
 
 target_compile_definitions(${PROJECT_EFI_COMMON_TEST} PRIVATE
@@ -45,4 +43,6 @@ target_compile_definitions(${PROJECT_EFI_COMMON_TEST} PRIVATE
 
 target_link_libraries(${PROJECT_EFI_COMMON_TEST} PUBLIC
   uavcan
+  gtest
+  gtest_main
 )
