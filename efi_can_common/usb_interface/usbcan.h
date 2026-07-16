@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include <cstdint>
 #include <ctype.h>
 #include <errno.h>
@@ -173,7 +175,7 @@ static int frame_send(int tty_fd, const unsigned char *frame, int frame_len)
 
   if (print_traffic)
   {
-    printf(">>> ");
+    printf("Send >>> ");
     for (i = 0; i < frame_len; i++)
     {
       printf("%02x ", frame[i]);
@@ -206,7 +208,7 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
   unsigned char byte;
 
   if (print_traffic)
-    fprintf(stderr, "<<< ");
+    fprintf(stderr, " Recv: <<< ");
 
   frame_len = 0;
   while (program_running)
@@ -221,6 +223,7 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
     timeout.tv_usec = 10000; // 10ms timeout
 
     int select_result = select(tty_fd + 1, &readfds, NULL, NULL, &timeout);
+    // int select_result = select(tty_fd, &readfds, NULL, NULL, &timeout);
     if (select_result > 0 && FD_ISSET(tty_fd, &readfds))
     {
       result = read(tty_fd, &byte, 1);
@@ -292,30 +295,29 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
 
 static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CANUSB_FRAME frame)
 {
-  int cmd_frame_len;
+  constexpr int cmd_frame_len{20};
   unsigned char cmd_frame[20];
 
-  cmd_frame_len = 0;
-  cmd_frame[cmd_frame_len++] = 0xaa;
-  cmd_frame[cmd_frame_len++] = 0x55;
-  cmd_frame[cmd_frame_len++] = 0x12;
-  cmd_frame[cmd_frame_len++] = speed;
-  cmd_frame[cmd_frame_len++] = frame;
-  cmd_frame[cmd_frame_len++] = 0; /* Filter ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Filter ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Filter ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Filter ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Mask ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Mask ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Mask ID not handled. */
-  cmd_frame[cmd_frame_len++] = 0; /* Mask ID not handled. */
-  cmd_frame[cmd_frame_len++] = mode;
-  cmd_frame[cmd_frame_len++] = 0x01;
-  cmd_frame[cmd_frame_len++] = 0;
-  cmd_frame[cmd_frame_len++] = 0;
-  cmd_frame[cmd_frame_len++] = 0;
-  cmd_frame[cmd_frame_len++] = 0;
-  cmd_frame[cmd_frame_len++] = generate_checksum(&cmd_frame[2], 17);
+  cmd_frame[0] = 0xaa;
+  cmd_frame[1] = 0x55;
+  cmd_frame[2] = 0x12;
+  cmd_frame[3] = speed;
+  cmd_frame[4] = frame;
+  cmd_frame[5] = 0;  /* Filter ID not handled. */
+  cmd_frame[6] = 0;  /* Filter ID not handled. */
+  cmd_frame[7] = 0;  /* Filter ID not handled. */
+  cmd_frame[8] = 0;  /* Filter ID not handled. */
+  cmd_frame[9] = 0;  /* Mask ID not handled. */
+  cmd_frame[10] = 0; /* Mask ID not handled. */
+  cmd_frame[11] = 0; /* Mask ID not handled. */
+  cmd_frame[12] = 0; /* Mask ID not handled. */
+  cmd_frame[13] = mode;
+  cmd_frame[14] = 0x01;
+  cmd_frame[15] = 0;
+  cmd_frame[16] = 0;
+  cmd_frame[17] = 0;
+  cmd_frame[18] = 0;
+  cmd_frame[19] = generate_checksum(&cmd_frame[2], 17);
 
   if (frame_send(tty_fd, cmd_frame, cmd_frame_len) < 0)
   {
@@ -361,7 +363,6 @@ static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, con
   /* Byte 2 to 3: ID */
   data_frame[2] = id & 0xFF;        /* lsb */
   data_frame[3] = (id >> 8) & 0xFF; /* msb */
-  data_frame_len = 4;
   if (frame == CANUSB_FRAME_EXTENDED)
   {
     /* Byte 4 to 5: Extended ID */
@@ -426,4 +427,23 @@ static int adapter_init(const char *tty_device, int baudrate)
   }
 
   return tty_fd;
+}
+
+static int receive_data_frame(int tty_fd, uint8_t *frame, int frame_len_max)
+{
+  uint8_t uart_frame[MAX_FRAME_SIZE];
+  int ret_val = frame_recv(tty_fd, uart_frame, frame_len_max + 7);
+
+  if ((uart_frame[1] & 0xe0) == 0xe0)
+  {
+    // Copy extended frame back
+    memcpy(frame, uart_frame + 6, 8);
+    return ret_val - 7;
+  }
+  else
+  {
+    memcpy(frame, uart_frame + 4, 8);
+    // Copy standard frame back
+    return ret_val - 5;
+  }
 }

@@ -15,13 +15,17 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
   {
     /// TODO: Verify these settings
     command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL,
-                     CANUSB_FRAME::CANUSB_FRAME_EXTENDED);
+                     CANUSB_FRAME::CANUSB_FRAME_STANDARD);
   }
   ~Usb_can_interface() override
   {
     if (m_tty_fd > 0)
     {
       close(m_tty_fd);
+    }
+    else
+    {
+      std::cout << "Failed to close" << std::endl;
     }
   }
 
@@ -31,10 +35,10 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     out_flags = 0;
 
     // TODO: Handle flags and time
-    uint32_t len{120}; // (8 bytes data + 4 bytes header?)
+    uint32_t len{8}; // (8 bytes data + 4 bytes header?)
     uint8_t *p_data{out_frame.data};
 
-    return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
+    return receive_data_frame(m_tty_fd, p_data, len);
   }
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
@@ -43,7 +47,8 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     uint32_t can_id{frame.id};
     uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)}; // (8 bytes data + 4 bytes header?)
 
-    return send_data_frame(m_tty_fd, CANUSB_FRAME_EXTENDED, can_id, p_data, len);
+    // return send_data_frame(m_tty_fd, CANUSB_FRAME_EXTENDED, can_id, p_data, len);
+    return send_data_frame(m_tty_fd, CANUSB_FRAME_STANDARD, can_id, p_data, len);
     //   TODO: Handle flags and time
   }
 
