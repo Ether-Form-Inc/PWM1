@@ -429,21 +429,27 @@ static int adapter_init(const char *tty_device, int baudrate)
   return tty_fd;
 }
 
-static int receive_data_frame(int tty_fd, uint8_t *frame, int frame_len_max)
+static int receive_data_frame(int tty_fd, uint8_t *frame, int frame_len_max, uint32_t &id)
 {
   uint8_t uart_frame[MAX_FRAME_SIZE];
   int ret_val = frame_recv(tty_fd, uart_frame, frame_len_max + 7);
 
   if ((uart_frame[1] & 0xe0) == 0xe0)
   {
+    // Copy extended id
+    memcpy(&id, uart_frame + 2, 4);
+
     // Copy extended frame back
     memcpy(frame, uart_frame + 6, 8);
     return ret_val - 7;
   }
   else
   {
-    memcpy(frame, uart_frame + 4, 8);
+    // Copy std id mback
+    memcpy(&id, uart_frame + 2, 2);
+
     // Copy standard frame back
+    memcpy(frame, uart_frame + 4, 8);
     return ret_val - 5;
   }
 }
