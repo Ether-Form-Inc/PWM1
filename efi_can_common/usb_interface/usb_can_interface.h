@@ -34,8 +34,7 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     uint32_t len{120}; // (8 bytes data + 4 bytes header?)
     uint8_t *p_data{out_frame.data};
 
-    return 0;
-    // return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
+    return frame_recv(m_tty_fd, reinterpret_cast<unsigned char *>(p_data), len);
   }
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override

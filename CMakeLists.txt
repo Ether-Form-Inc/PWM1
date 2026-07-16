@@ -6,3 +6,4 @@ include(FetchContent)
 
 add_subdirectory(messages)
 add_subdirectory(tests)
+add_subdirectory(efi_can_common)
