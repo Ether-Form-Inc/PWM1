@@ -1,17 +1,26 @@
+#include <Posix_can_to_pwm.h>
 #include <Pwm_commander.h>
-#include <dummy_can_interface.h>
-#include <testing_interface/usb_can_interface.h>
+#include <dummy_can_interface.h> // TODO: Seperate system clock
+#include <usb_interface/usb_can_interface.h>
 
 #include <cstdint>
 #include <iostream>
+#include <thread>
 
 inline constexpr char tty0[] = "/dev/ttyUSB0";
 inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_hand{true, 1, 10};
-  c_hand.initialize();
+  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 10};
+
+  typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Dummy_system_clock> posix_handler_t;
+  posix_handler_t c_rcv{0, true, 11};
+
+  c_cmd.initialize();
+  c_rcv.initialize();
+
+  std::thread t(&posix_handler_t::main, &c_rcv);
 
   std::cout << "Etherform CLI CAN-PWM interface. Copyright 2026." << std::endl;
   std::cout << "Servo [0] or Motor [1]? Please remove props fro motor before use." << std::endl;
@@ -32,7 +41,7 @@ int main()
       }
       else
       {
-        c_hand.command_servo_pwm(servo_val);
+        c_cmd.command_servo_pwm(servo_val);
       }
     }
   }

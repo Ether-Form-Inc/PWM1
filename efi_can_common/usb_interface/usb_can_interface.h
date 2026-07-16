@@ -4,7 +4,7 @@
 #include <uavcan/driver/can.hpp>
 #include <uavcan/time.hpp>
 
-#include <testing_interface/usbcan.h>
+#include <usb_interface/usbcan.h>
 using namespace uavcan;
 
 template <const char *tty_device> class Usb_can_interface : public ICanIface

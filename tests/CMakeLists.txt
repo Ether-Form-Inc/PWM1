@@ -52,8 +52,8 @@ file(GLOB_RECURSE loopback_test_files
   ${CMAKE_CURRENT_LIST_DIR}/loopback_test/*.cpp
 )
 
-file(GLOB_RECURSE testing_interface_files 
-  ${CMAKE_CURRENT_LIST_DIR}/testing_interface/*.cpp
+file(GLOB_RECURSE efi_common_files 
+  ${CMAKE_SOURCE_DIR}/efi_can_common/*.cpp
 )
 
 file(GLOB_RECURSE cli_files 
@@ -61,7 +61,7 @@ file(GLOB_RECURSE cli_files
 )
 
 # ************ Bool Tests ***************
-add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${testing_interface_files} ${board_files})
+add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${efi_can_common} ${board_files})
 
 target_compile_features(${PROJECT_TEST_NAME} PRIVATE cxx_std_20)
 target_compile_features(${PROJECT_TEST_NAME} PRIVATE cxx_std_20)
@@ -103,7 +103,7 @@ message(STATUS "Linked libraries: ${LINK_LIBS}")
 
 
 # ************ Loopback Tests ***************
-add_executable(${PROJECT_LOOPBACK} ${loopback_test_files} ${testing_interface_files})
+add_executable(${PROJECT_LOOPBACK} ${loopback_test_files} ${efi_can_common})
 
 target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
