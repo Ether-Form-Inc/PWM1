@@ -19,18 +19,21 @@ TEST(efi_can_common, usb_can_interface)
   CanIOFlags flags;
 
   CanFrame frame1;
-  frame1.dlc = CanFrame::dataLengthToDlc(4);
-  frame1.id = 100;
-  frame1.data[0] = 0;
-  frame1.data[1] = 1;
-  frame1.data[2] = 2;
-  frame1.data[3] = 3;
-
-  std::atomic<bool> stop{false};
-
   CanFrame frame2;
 
-  std::thread thr(
+  /* Set transmit frame */
+  uint32_t send_frame_len{8}; // Maximum
+  frame1.dlc = CanFrame::dataLengthToDlc(send_frame_len);
+  frame1.id = 0xaaaaaaaa; // Test frame id match across all 4 bytes
+
+  for (uint32_t i = 0; i < send_frame_len; i++)
+  {
+    frame1.data[i] = i;
+  }
+
+  /* Setup thread to receive from usbcan*/
+  std::atomic<bool> stop{false};
+  std::thread receive_thread(
       [&stop, &frame2, &tx_deadline, &can2, &flags, &t]()
       {
         while (!stop && can2.receive(frame2, tx_deadline, t, flags) <= 0)
@@ -39,19 +42,18 @@ TEST(efi_can_common, usb_can_interface)
         }
       });
 
+  // Give time for thread to initialize then send can frame
   std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-
   can1.send(frame1, tx_deadline, 0);
 
+  // Join rcv thread
   stop = true;
-  thr.join();
+  receive_thread.join();
 
-  if (frame2.data[2] == frame1.data[2])
+  // Test that frame id matches along with all data
+  EXPECT_EQ(frame1.id, frame2.id);
+  for (uint32_t i = 0; i < send_frame_len; i++)
   {
-    std::cout << "Possible good test. " << std::endl;
-  }
-  else
-  {
-    std::cout << "Failed test " << (int)frame2.data[2] << std::endl;
+    EXPECT_EQ(frame1.data[i], frame2.data[i]);
   }
 }
