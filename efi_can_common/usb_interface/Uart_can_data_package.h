@@ -47,8 +47,8 @@ template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
   {
     memset(&header, 0, sizeof(HEADER));
 
-    header |= (id & 0xFF) << 8;   /* lsb */
-    header |= (id & 0xFF00) >> 8; /* msb */
+    header |= (id & 0xFF);   /* lsb */
+    header |= (id & 0xFF00); /* msb */
 
     if (sizeof(HEADER) == 4)
     {

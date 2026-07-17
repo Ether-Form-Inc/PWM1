@@ -24,7 +24,7 @@ TEST(efi_can_common, usb_can_interface)
   /* Set transmit frame */
   uint32_t send_frame_len{8}; // Maximum
   frame1.dlc = CanFrame::dataLengthToDlc(send_frame_len);
-  frame1.id = 0xfafafafa;       // Test frame id match across all 4 bytes
+  frame1.id = 0xf20a0381;       // Test frame id match across all 4 bytes
   frame1.id &= ((1 << 29) - 1); // Canid is only 29 bits
 
   for (uint32_t i = 0; i < send_frame_len; i++)
@@ -44,8 +44,9 @@ TEST(efi_can_common, usb_can_interface)
       });
 
   // Give time for thread to initialize then send can frame
-  std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   can1.send(frame1, tx_deadline, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
   // Join rcv thread
   stop = true;
