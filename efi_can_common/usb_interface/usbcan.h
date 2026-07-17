@@ -1,4 +1,7 @@
 #pragma once
+#include <usb_interface/Uart_can_data_package.h>
+#include <usb_interface/Uart_command_package.h>
+#include <usb_interface/Usb_can_constants.h>
 
 #include <cstdint>
 #include <ctype.h>
@@ -18,182 +21,12 @@
 
 #define CANUSB_TTY_BAUD_RATE_DEFAULT 2000000
 
-#define MAX_FRAME_SIZE 15
-#define MIN_FRAME_SIZE 5
-
-typedef uint16_t standard_header_t;
-typedef uint32_t extended_header_t;
-
-static inline uint32_t get_can_frame_size(uint8_t data_info_byte)
-{
-  return data_info_byte & 0xf;
-}
-
-static bool is_data_frame_complete(uint32_t frame_len, uint8_t data_info_byte)
-{
-  if ((data_info_byte & 0xe0) == 0xc0)
-  {
-    return frame_len >= get_can_frame_size(data_info_byte) + 5;
-    /* This is a standard frame which has payload, 2 id bytes, and 3 protocol bytes. */
-  }
-  else if ((data_info_byte & 0xe0) == 0xe0)
-  {
-    /* This is a standard frame which has payload, 4 id bytes, and 3 protocol bytes. */
-    return frame_len >= get_can_frame_size(data_info_byte) + 7;
-  }
-
-  // Not a data frame
-  return false;
-}
-
-static bool is_command_frame(const uint8_t *p_frame)
-{
-  return p_frame[1] == 0x55;
-}
-
-static bool is_command_frame_complete(uint32_t frame_len)
-{
-  /* A command frame is always 20 bytes. */
-  return frame_len >= 20;
-}
-
-template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
-{
-  public:
-  void set_data_length(const uint8_t data_size)
-  {
-    data_frame_info |= data_size;
-    compress_data_size(data_size);
-  }
-
-  void set_extended_frame()
-  {
-    data_frame_info |= 0x20;
-  }
-
-  void set_header(const uint32_t id)
-  {
-    memset(&header, 0, sizeof(HEADER));
-
-    header |= (id & 0xFF) << 8;   /* lsb */
-    header |= (id & 0xFF00) >> 8; /* msb */
-
-    if (sizeof(HEADER) == 4)
-    {
-      header |= ((id >> 16) & 0xFF) << 16;
-      header |= ((id >> 24) & 0xFF) << 24;
-    }
-  }
-
-  void set_data(const uint8_t index, const uint8_t data_byte)
-  {
-    data[index] = data_byte;
-  }
-
-  private:
-  /************* Data **************/
-  const uint8_t begin_sync_byte{0xaa};
-  uint8_t data_frame_info{0xc0 & 0xef};
-  HEADER header;
-  uint8_t data[8]; // Constant max size
-  const uint8_t end_sync_bytes{0x55};
-  /*********************************/
-
-  // This is used for case where data is not max sized we need to transmit fewer bytes. To this end we move trailing
-  // bytes to the end of the data array.
-  void compress_data_size(uint8_t data_size)
-  {
-    if (data_size >= 8)
-    {
-      return;
-    }
-    data[data_size] = end_sync_bytes;
-  }
-};
-
-typedef enum
-{
-  CANUSB_SPEED_1000000 = 0x01,
-  CANUSB_SPEED_800000 = 0x02,
-  CANUSB_SPEED_500000 = 0x03,
-  CANUSB_SPEED_400000 = 0x04,
-  CANUSB_SPEED_250000 = 0x05,
-  CANUSB_SPEED_200000 = 0x06,
-  CANUSB_SPEED_125000 = 0x07,
-  CANUSB_SPEED_100000 = 0x08,
-  CANUSB_SPEED_50000 = 0x09,
-  CANUSB_SPEED_20000 = 0x0a,
-  CANUSB_SPEED_10000 = 0x0b,
-  CANUSB_SPEED_5000 = 0x0c,
-  CANUSB_SPEED_NOT_SET = 0x0
-} CANUSB_SPEED;
-
-typedef enum
-{
-  CANUSB_MODE_NORMAL = 0x00,
-  CANUSB_MODE_LOOPBACK = 0x01,
-  CANUSB_MODE_SILENT = 0x02,
-  CANUSB_MODE_LOOPBACK_SILENT = 0x03,
-} CANUSB_MODE;
-
-typedef enum
-{
-  CANUSB_FRAME_STANDARD = 0x01,
-  CANUSB_FRAME_EXTENDED = 0x02,
-} CANUSB_FRAME;
-
-static int print_traffic = 0;
-
-static CANUSB_SPEED canusb_int_to_speed(int speed)
-{
-  switch (speed)
-  {
-  case 1000000:
-    return CANUSB_SPEED_1000000;
-  case 800000:
-    return CANUSB_SPEED_800000;
-  case 500000:
-    return CANUSB_SPEED_500000;
-  case 400000:
-    return CANUSB_SPEED_400000;
-  case 250000:
-    return CANUSB_SPEED_250000;
-  case 200000:
-    return CANUSB_SPEED_200000;
-  case 125000:
-    return CANUSB_SPEED_125000;
-  case 100000:
-    return CANUSB_SPEED_100000;
-  case 50000:
-    return CANUSB_SPEED_50000;
-  case 20000:
-    return CANUSB_SPEED_20000;
-  case 10000:
-    return CANUSB_SPEED_10000;
-  case 5000:
-    return CANUSB_SPEED_5000;
-  default:
-    return CANUSB_SPEED_NOT_SET;
-  }
-}
-
-static int generate_checksum(const unsigned char *data, int data_len)
-{
-  int i, checksum;
-
-  checksum = 0;
-  for (i = 0; i < data_len; i++)
-  {
-    checksum += data[i];
-  }
-
-  return checksum & 0xff;
-}
+static constexpr bool print_traffic{false};
 
 static bool frame_is_complete(uint8_t *frame, int &frame_len)
 {
-  // Find the first 0xaa in the data and set to first byte
-  while (frame_len > 1 && frame[0] != 0xaa)
+  // Find the first SYNC_BYTE in the data and set to first byte
+  while (frame_len > 1 && frame[0] != SYNC_BYTE)
   {
     memmove(frame, frame + 1, --frame_len);
   }
@@ -204,8 +37,8 @@ static bool frame_is_complete(uint8_t *frame, int &frame_len)
     return false;
   }
 
-  /* Need to sync on 0xaa at start of frames, so just skip. */
-  if (frame[0] != 0xaa)
+  /* Need to sync on SYNC_BYTE at start of frames, so just skip. */
+  if (frame[0] != SYNC_BYTE)
   {
     frame_len = 0;
     return false;
@@ -263,13 +96,15 @@ int do_read(int tty_fd, uint8_t *p_data, size_t size)
   return result;
 }
 
-static bool check_command_checksum(uint8_t *frame, uint32_t frame_len)
+static bool check_command_checksum(uint8_t *p_frame, uint32_t frame_len)
 {
   /* Compare checksum for command frames only. */
-  if ((frame_len == 20) && (frame[0] == 0xaa) && (frame[1] == 0x55))
+  if ((frame_len == 20) && (p_frame[0] == SYNC_BYTE) && (p_frame[1] == 0x55))
   {
-    int checksum = generate_checksum(&frame[2], 17);
-    if (checksum != frame[frame_len - 1])
+    Uart_command_package *p_cmd{reinterpret_cast<Uart_command_package *>(p_frame)};
+
+    bool valid{p_cmd->valid_checksum()};
+    if (!valid)
     {
       fprintf(stderr, "frame_recv() failed: Checksum incorrect\n");
       return false;
@@ -327,31 +162,12 @@ static int frame_recv(int tty_fd, uint8_t *frame, int frame_len_max)
 
 static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode)
 {
-  constexpr int cmd_frame_len{20};
-  unsigned char cmd_frame[20];
+  Uart_command_package cmd_frame;
+  cmd_frame.set_canusb_speed(speed);
+  cmd_frame.set_mode(mode);
+  cmd_frame.set_checksum();
 
-  cmd_frame[0] = 0xaa;
-  cmd_frame[1] = 0x55;
-  cmd_frame[2] = 0x12;
-  cmd_frame[3] = speed;
-  cmd_frame[4] = CANUSB_FRAME::CANUSB_FRAME_STANDARD;
-  cmd_frame[5] = 0;  /* Filter ID not handled. */
-  cmd_frame[6] = 0;  /* Filter ID not handled. */
-  cmd_frame[7] = 0;  /* Filter ID not handled. */
-  cmd_frame[8] = 0;  /* Filter ID not handled. */
-  cmd_frame[9] = 0;  /* Mask ID not handled. */
-  cmd_frame[10] = 0; /* Mask ID not handled. */
-  cmd_frame[11] = 0; /* Mask ID not handled. */
-  cmd_frame[12] = 0; /* Mask ID not handled. */
-  cmd_frame[13] = mode;
-  cmd_frame[14] = 0x01;
-  cmd_frame[15] = 0;
-  cmd_frame[16] = 0;
-  cmd_frame[17] = 0;
-  cmd_frame[18] = 0;
-  cmd_frame[19] = generate_checksum(&cmd_frame[2], 17);
-
-  if (frame_send(tty_fd, cmd_frame, cmd_frame_len) < 0)
+  if (frame_send(tty_fd, reinterpret_cast<uint8_t *>(&cmd_frame), sizeof(cmd_frame)) < 0)
   {
     return -1;
   }

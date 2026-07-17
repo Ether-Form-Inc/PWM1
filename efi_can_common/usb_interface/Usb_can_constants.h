@@ -1,0 +1,41 @@
+#pragma once
+
+#include <cstdint>
+
+typedef enum : uint8_t
+{
+  CANUSB_SPEED_1000000 = 0x01,
+  CANUSB_SPEED_800000 = 0x02,
+  CANUSB_SPEED_500000 = 0x03,
+  CANUSB_SPEED_400000 = 0x04,
+  CANUSB_SPEED_250000 = 0x05,
+  CANUSB_SPEED_200000 = 0x06,
+  CANUSB_SPEED_125000 = 0x07,
+  CANUSB_SPEED_100000 = 0x08,
+  CANUSB_SPEED_50000 = 0x09,
+  CANUSB_SPEED_20000 = 0x0a,
+  CANUSB_SPEED_10000 = 0x0b,
+  CANUSB_SPEED_5000 = 0x0c,
+  CANUSB_SPEED_NOT_SET = 0x0
+} CANUSB_SPEED;
+
+typedef enum : uint8_t
+{
+  CANUSB_MODE_NORMAL = 0x00,
+  CANUSB_MODE_LOOPBACK = 0x01,
+  CANUSB_MODE_SILENT = 0x02,
+  CANUSB_MODE_LOOPBACK_SILENT = 0x03,
+} CANUSB_MODE;
+
+typedef enum : uint8_t
+{
+  CANUSB_FRAME_STANDARD = 0x01,
+  CANUSB_FRAME_EXTENDED = 0x02,
+} CANUSB_FRAME;
+
+static constexpr uint8_t SYNC_BYTE{0xaa};
+static constexpr uint8_t DATA_END_BYTE{0x55};
+static constexpr uint8_t COMMAND_IDENTIFIER_BYTE{0x55};
+
+static constexpr uint32_t MAX_FRAME_SIZE{15};
+static constexpr uint32_t MIN_FRAME_SIZE{5};
