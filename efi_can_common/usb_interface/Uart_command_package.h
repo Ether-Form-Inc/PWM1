@@ -4,6 +4,11 @@
 
 #include <cstdint>
 
+static bool is_command_frame(const uint8_t *p_frame)
+{
+  return p_frame[1] == DATA_END_BYTE;
+}
+
 struct __attribute__((packed)) Uart_command_package
 {
   public:

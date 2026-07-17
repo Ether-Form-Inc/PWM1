@@ -39,3 +39,4 @@ static constexpr uint8_t COMMAND_IDENTIFIER_BYTE{0x55};
 
 static constexpr uint32_t MAX_FRAME_SIZE{15};
 static constexpr uint32_t MIN_FRAME_SIZE{5};
+static constexpr uint64_t CANUSB_TTY_BAUD_RATE_DEFAULT{2000000};

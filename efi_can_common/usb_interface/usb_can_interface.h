@@ -12,10 +12,9 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
 {
   public:
   Usb_can_interface()
-      : m_tty_fd(adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))
+      : m_tty_fd(usbcan::adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))
   {
-    /// TODO: Verify these settings
-    command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL);
+    usbcan::command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL);
   }
   ~Usb_can_interface() override
   {
@@ -34,21 +33,19 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
   {
     out_flags = 0;
 
-    // TODO: Handle flags and time
-    uint32_t len{8}; // (8 bytes data + 4 bytes header?)
+    const uint32_t max_len{8};
     uint8_t *p_data{out_frame.data};
 
-    return receive_data_frame(m_tty_fd, p_data, len, out_frame.id);
+    return usbcan::receive_data_frame(m_tty_fd, p_data, max_len, out_frame.id);
   }
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
     const uint8_t *p_data{frame.data};
     uint32_t can_id{frame.id};
-    uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)}; // (8 bytes data + 4 bytes header?)
+    uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)};
 
-    return send_data_frame(m_tty_fd, can_id, p_data, len);
-    //   TODO: Handle flags and time
+    return usbcan::send_data_frame(m_tty_fd, can_id, p_data, len);
   }
 
   int16_t configureFilters(const CanFilterConfig *filter_configs, uint16_t num_configs) override

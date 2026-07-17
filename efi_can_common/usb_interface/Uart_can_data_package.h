@@ -29,17 +29,6 @@ static bool is_data_frame_complete(uint32_t frame_len, uint8_t data_info_byte)
   return false;
 }
 
-static bool is_command_frame(const uint8_t *p_frame)
-{
-  return p_frame[1] == DATA_END_BYTE;
-}
-
-static bool is_command_frame_complete(uint32_t frame_len)
-{
-  /* A command frame is always 20 bytes. */
-  return frame_len >= 20;
-}
-
 template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
 {
   public:
