@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iostream>
-
 #include <cstdint>
 #include <ctype.h>
 #include <errno.h>
@@ -18,10 +16,10 @@
 
 #include <asm/termbits.h> /* struct termios2 */
 
-#define CANUSB_INJECT_SLEEP_GAP_DEFAULT 200 /* ms */
 #define CANUSB_TTY_BAUD_RATE_DEFAULT 2000000
 
 #define MAX_FRAME_SIZE 15
+#define MIN_FRAME_SIZE 5
 
 typedef uint16_t standard_header_t;
 typedef uint32_t extended_header_t;
@@ -111,17 +109,6 @@ typedef enum
   CANUSB_FRAME_EXTENDED = 0x02,
 } CANUSB_FRAME;
 
-typedef enum
-{
-  CANUSB_INJECT_PAYLOAD_MODE_RANDOM = 0,
-  CANUSB_INJECT_PAYLOAD_MODE_INCREMENTAL = 1,
-  CANUSB_INJECT_PAYLOAD_MODE_FIXED = 2,
-} CANUSB_PAYLOAD_MODE;
-
-static int terminate_after = 0;
-static int program_running = 1;
-static int inject_payload_mode = CANUSB_INJECT_PAYLOAD_MODE_FIXED;
-static float inject_sleep_gap = CANUSB_INJECT_SLEEP_GAP_DEFAULT;
 static int print_traffic = 0;
 
 static CANUSB_SPEED canusb_int_to_speed(int speed)
@@ -170,15 +157,25 @@ static int generate_checksum(const unsigned char *data, int data_len)
   return checksum & 0xff;
 }
 
-static int frame_is_complete(const unsigned char *frame, int frame_len)
+static int frame_is_complete(uint8_t *frame, int &frame_len)
 {
-  if (frame_len > 0)
+  // Find the first 0xaa in the data and set to first byte
+  while (frame_len > 1 && frame[0] != 0xaa)
   {
-    if (frame[0] != 0xaa)
-    {
-      /* Need to sync on 0xaa at start of frames, so just skip. */
-      return 1;
-    }
+    memmove(frame, frame + 1, --frame_len);
+  }
+
+  // Ensure we have some frame to work with
+  if (frame_len <= 0)
+  {
+    return 0;
+  }
+
+  /* Need to sync on 0xaa at start of frames, so just skip. */
+  if (frame[0] != 0xaa)
+  {
+    frame_len = 0;
+    return 0;
   }
 
   if (frame_len < 2)
@@ -232,7 +229,7 @@ static int frame_send(int tty_fd, const unsigned char *frame, int frame_len)
 
   if (print_traffic)
   {
-    printf("Send >>> ");
+    printf(">>> ");
     for (i = 0; i < frame_len; i++)
     {
       printf("%02x ", frame[i]);
@@ -290,41 +287,44 @@ static bool check_command_checksum(uint8_t *frame, uint32_t frame_len)
   return true;
 }
 
-static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
+static int frame_recv(int tty_fd, uint8_t *frame, int frame_len_max)
 {
-  int result, frame_len;
-  unsigned char byte;
+  int result{};
+  int frame_len{};
 
-  if (print_traffic)
-    fprintf(stderr, " Recv: <<< ");
-
-  frame_len = 0;
-  while (program_running)
+  while (!frame_is_complete(frame, frame_len))
   {
-    result = do_read(tty_fd, &byte, 1);
+    // If we have no bytes then recv the minimum for a valid frame. Else rcv 1 at a time lest we rcv multiple frames
+    if (frame_len == 0)
+    {
+      result = do_read(tty_fd, frame + frame_len, MIN_FRAME_SIZE);
+    }
+    else
+    {
+      result = do_read(tty_fd, frame + frame_len, 1);
+    }
+
+    // Handle data
     if (result > 0)
     {
-      if (print_traffic)
-        fprintf(stderr, "%02x ", byte);
-
-      if (frame_len == frame_len_max)
+      frame_len += result;
+      if (frame_len > frame_len_max)
       {
         fprintf(stderr, "frame_recv() failed: Overflow\n");
         return -1;
       }
-
-      frame[frame_len++] = byte;
-
-      if (frame_is_complete(frame, frame_len))
-      {
-        break;
-      }
     }
-    usleep(10);
   }
 
   if (print_traffic)
+  {
+    fprintf(stderr, "<<< ");
+    for (uint32_t i = 0; i < frame_len; i++)
+    {
+      fprintf(stderr, "%02x ", *(frame + i));
+    }
     fprintf(stderr, "\n");
+  }
 
   if (!check_command_checksum(frame, frame_len))
   {
