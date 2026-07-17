@@ -259,9 +259,40 @@ static int frame_send(int tty_fd, const unsigned char *frame, int frame_len)
   return frame_len;
 }
 
+int do_read(int tty_fd, uint8_t *p_data, size_t size)
+{
+  int result = read(tty_fd, p_data, size);
+
+  if (result == -1)
+  {
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+    {
+      fprintf(stderr, "read() failed: %s\n", strerror(errno));
+      return -1;
+    }
+  }
+
+  return result;
+}
+
+static bool check_command_checksum(uint8_t *frame, uint32_t frame_len)
+{
+  /* Compare checksum for command frames only. */
+  if ((frame_len == 20) && (frame[0] == 0xaa) && (frame[1] == 0x55))
+  {
+    int checksum = generate_checksum(&frame[2], 17);
+    if (checksum != frame[frame_len - 1])
+    {
+      fprintf(stderr, "frame_recv() failed: Checksum incorrect\n");
+      return false;
+    }
+  }
+  return true;
+}
+
 static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
 {
-  int result, frame_len, checksum;
+  int result, frame_len;
   unsigned char byte;
 
   if (print_traffic)
@@ -270,16 +301,8 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
   frame_len = 0;
   while (program_running)
   {
-    result = read(tty_fd, &byte, 1);
-    if (result == -1)
-    {
-      if (errno != EAGAIN && errno != EWOULDBLOCK)
-      {
-        fprintf(stderr, "read() failed: %s\n", strerror(errno));
-        return -1;
-      }
-    }
-    else if (result > 0)
+    result = do_read(tty_fd, &byte, 1);
+    if (result > 0)
     {
       if (print_traffic)
         fprintf(stderr, "%02x ", byte);
@@ -303,15 +326,9 @@ static int frame_recv(int tty_fd, unsigned char *frame, int frame_len_max)
   if (print_traffic)
     fprintf(stderr, "\n");
 
-  /* Compare checksum for command frames only. */
-  if ((frame_len == 20) && (frame[0] == 0xaa) && (frame[1] == 0x55))
+  if (!check_command_checksum(frame, frame_len))
   {
-    checksum = generate_checksum(&frame[2], 17);
-    if (checksum != frame[frame_len - 1])
-    {
-      fprintf(stderr, "frame_recv() failed: Checksum incorrect\n");
-      return -1;
-    }
+    return -1;
   }
 
   return frame_len;
