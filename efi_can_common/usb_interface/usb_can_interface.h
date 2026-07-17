@@ -15,8 +15,7 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
       : m_tty_fd(adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))
   {
     /// TODO: Verify these settings
-    command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL,
-                     CANUSB_FRAME::CANUSB_FRAME_STANDARD);
+    command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL);
   }
   ~Usb_can_interface() override
   {

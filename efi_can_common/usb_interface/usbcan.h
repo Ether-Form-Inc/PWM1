@@ -24,6 +24,39 @@
 typedef uint16_t standard_header_t;
 typedef uint32_t extended_header_t;
 
+static inline uint32_t get_can_frame_size(uint8_t data_info_byte)
+{
+  return data_info_byte & 0xf;
+}
+
+static bool is_data_frame_complete(uint32_t frame_len, uint8_t data_info_byte)
+{
+  if ((data_info_byte & 0xe0) == 0xc0)
+  {
+    return frame_len >= get_can_frame_size(data_info_byte) + 5;
+    /* This is a standard frame which has payload, 2 id bytes, and 3 protocol bytes. */
+  }
+  else if ((data_info_byte & 0xe0) == 0xe0)
+  {
+    /* This is a standard frame which has payload, 4 id bytes, and 3 protocol bytes. */
+    return frame_len >= get_can_frame_size(data_info_byte) + 7;
+  }
+
+  // Not a data frame
+  return false;
+}
+
+static bool is_command_frame(const uint8_t *p_frame)
+{
+  return p_frame[1] == 0x55;
+}
+
+static bool is_command_frame_complete(uint32_t frame_len)
+{
+  /* A command frame is always 20 bytes. */
+  return frame_len >= 20;
+}
+
 template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
 {
   public:
@@ -157,7 +190,7 @@ static int generate_checksum(const unsigned char *data, int data_len)
   return checksum & 0xff;
 }
 
-static int frame_is_complete(uint8_t *frame, int &frame_len)
+static bool frame_is_complete(uint8_t *frame, int &frame_len)
 {
   // Find the first 0xaa in the data and set to first byte
   while (frame_len > 1 && frame[0] != 0xaa)
@@ -168,85 +201,43 @@ static int frame_is_complete(uint8_t *frame, int &frame_len)
   // Ensure we have some frame to work with
   if (frame_len <= 0)
   {
-    return 0;
+    return false;
   }
 
   /* Need to sync on 0xaa at start of frames, so just skip. */
   if (frame[0] != 0xaa)
   {
     frame_len = 0;
-    return 0;
+    return false;
   }
 
   if (frame_len < 2)
   {
-    return 0;
+    return false;
   }
 
-  if (frame[1] == 0x55)
-  { /* Command frame... */
-    if (frame_len >= 20)
-    { /* ...always 20 bytes. */
-      return 1;
-    }
-    else
-    {
-      return 0;
-    }
-  }
-  else if ((frame[1] & 0xe0) == 0xc0)
-  { /* Data frame... */
-    if (frame_len >= (frame[1] & 0xf) + 5)
-    { /* ...payload and 5 bytes. */
-      return 1;
-    }
-    else
-    {
-      return 0;
-    }
-  }
-  else if ((frame[1] & 0xe0) == 0xe0)
+  // Handle frames based on its type
+  if (is_command_frame(frame))
   {
-    // Extended can frame has 2 extra bytes
-    if (frame_len >= (frame[1] & 0xf) + 7)
-    { /* ...payload and 7 bytes. */
-      return 1;
-    }
-    else
-    {
-      return 0;
-    }
+    return is_command_frame_complete(frame_len);
   }
 
-  /* Unhandled frame type. */
-  printf("Unhandled frame\n");
-  return 0;
+  return is_data_frame_complete(frame_len, frame[1]);
 }
 
 static int frame_send(int tty_fd, const unsigned char *frame, int frame_len)
 {
-  int result, i;
-
   if (print_traffic)
   {
     printf(">>> ");
-    for (i = 0; i < frame_len; i++)
+    for (int i = 0; i < frame_len; i++)
     {
       printf("%02x ", frame[i]);
-    }
-    if (print_traffic > 1)
-    {
-      printf("    '");
-      for (i = 4; i < frame_len - 1; i++)
-      {
-        printf("%c", isalnum(frame[i]) ? frame[i] : '.');
-      }
-      printf("'");
     }
     printf("\n");
   }
 
-  result = write(tty_fd, frame, frame_len);
+  int result = write(tty_fd, frame, frame_len);
   if (result == -1)
   {
     fprintf(stderr, "write() failed: %s\n", strerror(errno));
@@ -334,7 +325,7 @@ static int frame_recv(int tty_fd, uint8_t *frame, int frame_len_max)
   return frame_len;
 }
 
-static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CANUSB_FRAME frame)
+static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode)
 {
   constexpr int cmd_frame_len{20};
   unsigned char cmd_frame[20];
@@ -343,7 +334,7 @@ static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CA
   cmd_frame[1] = 0x55;
   cmd_frame[2] = 0x12;
   cmd_frame[3] = speed;
-  cmd_frame[4] = frame;
+  cmd_frame[4] = CANUSB_FRAME::CANUSB_FRAME_STANDARD;
   cmd_frame[5] = 0;  /* Filter ID not handled. */
   cmd_frame[6] = 0;  /* Filter ID not handled. */
   cmd_frame[7] = 0;  /* Filter ID not handled. */
