@@ -23,6 +23,63 @@
 
 #define MAX_FRAME_SIZE 15
 
+typedef uint16_t standard_header_t;
+typedef uint32_t extended_header_t;
+
+template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
+{
+  public:
+  void set_data_length(const uint8_t data_size)
+  {
+    data_frame_info |= data_size;
+    compress_data_size(data_size);
+  }
+
+  void set_extended_frame()
+  {
+    data_frame_info |= 0x20;
+  }
+
+  void set_header(const uint32_t id)
+  {
+    memset(&header, 0, sizeof(HEADER));
+
+    header |= (id & 0xFF) << 8;   /* lsb */
+    header |= (id & 0xFF00) >> 8; /* msb */
+
+    if (sizeof(HEADER) == 4)
+    {
+      header |= ((id >> 16) & 0xFF) << 16;
+      header |= ((id >> 24) & 0xFF) << 24;
+    }
+  }
+
+  void set_data(const uint8_t index, const uint8_t data_byte)
+  {
+    data[index] = data_byte;
+  }
+
+  private:
+  /************* Data **************/
+  const uint8_t begin_sync_byte{0xaa};
+  uint8_t data_frame_info{0xc0 & 0xef};
+  HEADER header;
+  uint8_t data[8]; // Constant max size
+  const uint8_t end_sync_bytes{0x55};
+  /*********************************/
+
+  // This is used for case where data is not max sized we need to transmit fewer bytes. To this end we move trailing
+  // bytes to the end of the data array.
+  void compress_data_size(uint8_t data_size)
+  {
+    if (data_size >= 8)
+    {
+      return;
+    }
+    data[data_size] = end_sync_bytes;
+  }
+};
+
 typedef enum
 {
   CANUSB_SPEED_1000000 = 0x01,
@@ -65,7 +122,7 @@ static int terminate_after = 0;
 static int program_running = 1;
 static int inject_payload_mode = CANUSB_INJECT_PAYLOAD_MODE_FIXED;
 static float inject_sleep_gap = CANUSB_INJECT_SLEEP_GAP_DEFAULT;
-static int print_traffic = 1;
+static int print_traffic = 0;
 
 static CANUSB_SPEED canusb_int_to_speed(int speed)
 {
@@ -328,59 +385,28 @@ static int command_settings(int tty_fd, CANUSB_SPEED speed, CANUSB_MODE mode, CA
 }
 
 // The USB2CAN device converts a UART message to CAN on device.
-static int send_data_frame(int tty_fd, CANUSB_FRAME frame, unsigned long id, const unsigned char data[],
-                           int data_length_code)
+template <typename Header_t = extended_header_t>
+static int send_data_frame(int tty_fd, unsigned long id, const uint8_t data[], int data_length_code)
 {
-  int data_frame_len = 4;
+  Uart_can_data_package<Header_t> uart_frame;
 
-  // Build array with all zeros
-  unsigned char data_frame[MAX_FRAME_SIZE] = {0x00};
-
-  if (data_length_code < 0 || data_length_code > 8)
+  if (sizeof(Header_t) == sizeof(extended_header_t))
   {
-    fprintf(stderr, "Data length code (DLC) must be between 0 and 8!\n");
-    return -1;
+    uart_frame.set_extended_frame();
   }
 
-  /******************* UART Settings *****************/
-  // This byte is inserted for the uart rcvr to recognize the data as valid after this byte
-  /* Byte 0: Packet Start */
-  data_frame[0] = 0xaa;
+  uart_frame.set_header(id);
 
-  /* Byte 1: CAN Bus Data Frame Information */
-  data_frame[1] |= 0xC0; /* Bit 7 Always 1, Bit 6 Always 1 */
+  uart_frame.set_data_length(data_length_code);
 
-  // Set extended/standard can frame
-  if (frame == CANUSB_FRAME_STANDARD)
-    data_frame[1] &= 0xDF; /* STD frame */
-  else                     /* CANUSB_FRAME_EXTENDED */
-    data_frame[1] |= 0x20; /* EXT frame */
-
-  data_frame[1] &= 0xEF;             /* 0=Data */
-  data_frame[1] |= data_length_code; /* DLC=data_len */
-
-  /******************* CAN Frame Settings *****************/
-  /* Byte 2 to 3: ID */
-  data_frame[2] = id & 0xFF;        /* lsb */
-  data_frame[3] = (id >> 8) & 0xFF; /* msb */
-  if (frame == CANUSB_FRAME_EXTENDED)
-  {
-    /* Byte 4 to 5: Extended ID */
-    data_frame[4] = (id >> 16) & 0xFF;
-    data_frame[5] = (id >> 24) & 0xFF;
-    data_frame_len = 6;
-  }
-
-  /* Byte 4 or 6 and on: Data */
   for (int i = 0; i < data_length_code; i++)
   {
-    data_frame[data_frame_len++] = data[i];
+    uart_frame.set_data(i, data[i]);
   }
 
-  /* Last byte: End of frame */
-  data_frame[data_frame_len++] = 0x55;
+  int data_frame_len = 3 + (int)sizeof(Header_t) + (int)data_length_code;
 
-  if (frame_send(tty_fd, data_frame, data_frame_len) < 0)
+  if (frame_send(tty_fd, reinterpret_cast<uint8_t *>(&uart_frame), data_frame_len) < 0)
   {
     fprintf(stderr, "Unable to send frame!\n");
     return -1;

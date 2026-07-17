@@ -47,7 +47,7 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     uint32_t can_id{frame.id};
     uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)}; // (8 bytes data + 4 bytes header?)
 
-    return send_data_frame(m_tty_fd, CANUSB_FRAME_EXTENDED, can_id, p_data, len);
+    return send_data_frame(m_tty_fd, can_id, p_data, len);
     //   TODO: Handle flags and time
   }
 
