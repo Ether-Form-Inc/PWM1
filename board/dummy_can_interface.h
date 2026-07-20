@@ -20,7 +20,7 @@ class Dummy_can_iface : public ICanIface
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
     std::cout << "Sent node id: " << (frame.id & 0xff) << std::endl;
-    std::cout << frame.id << std::endl;
+    std::cout << (frame.id & CanFrame::MaskExtID) << std::endl;
     if (frame.id & 0x00000080)
     {
       std::cout << "Sending Service!" << std::endl;

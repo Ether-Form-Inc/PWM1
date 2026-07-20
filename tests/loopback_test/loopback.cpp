@@ -12,18 +12,21 @@ inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 10};
+  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 13};
 
   typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Dummy_system_clock> posix_handler_t;
   posix_handler_t c_rcv{0, true, 11};
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
   c_cmd.initialize();
   c_rcv.initialize();
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
   std::thread t(&posix_handler_t::main, &c_rcv);
 
   std::cout << "Etherform CLI CAN-PWM interface. Copyright 2026." << std::endl;
-  std::cout << "Servo [0] or Motor [1]? Please remove props fro motor before use." << std::endl;
+  std::cout << "Servo [0] or Motor [1]? Please remove props before motor before use." << std::endl;
   int input_servo;
   std::cin >> input_servo;
 

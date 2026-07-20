@@ -6,10 +6,15 @@
 #include <uavcan/time.hpp>
 
 #include <usb_interface/usbcan.h>
+
+#include <dummy_can_interface.h>
 using namespace uavcan;
 
-template <const char *tty_device> class Usb_can_interface : public ICanIface
+template <const char *tty_device, typename SYS_CLK = Dummy_system_clock> class Usb_can_interface : public ICanIface
 {
+
+  SYS_CLK sys_clk;
+
   public:
   Usb_can_interface()
       : m_tty_fd(usbcan::adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))
@@ -31,12 +36,24 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
                   CanIOFlags &out_flags) override
   {
+    out_ts_monotonic = sys_clk.getMonotonic();
+    out_ts_utc = sys_clk.getUtc();
+
     out_flags = 0;
 
     const uint32_t max_len{8};
     uint8_t *p_data{out_frame.data};
+    bool is_extended{};
 
-    return usbcan::receive_data_frame(m_tty_fd, p_data, max_len, out_frame.id);
+    int ret = usbcan::receive_data_frame(m_tty_fd, p_data, max_len, out_frame.id, is_extended);
+    out_frame.dlc = CanFrame::dataLengthToDlc(ret);
+
+    if (is_extended)
+    {
+      out_frame.id |= CanFrame::FlagEFF;
+    }
+
+    return ret;
   }
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
@@ -45,7 +62,7 @@ template <const char *tty_device> class Usb_can_interface : public ICanIface
     uint32_t can_id{frame.id};
     uint32_t len{(uint32_t)CanFrame::dlcToDataLength(frame.dlc)};
 
-    return usbcan::send_data_frame(m_tty_fd, can_id, p_data, len);
+    return usbcan::send_data_frame(m_tty_fd, can_id & CanFrame::MaskExtID, p_data, len);
   }
 
   int16_t configureFilters(const CanFilterConfig *filter_configs, uint16_t num_configs) override

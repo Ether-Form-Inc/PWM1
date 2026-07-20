@@ -52,8 +52,8 @@ template <typename HEADER> struct __attribute__((packed)) Uart_can_data_package
 
     if (sizeof(HEADER) == 4)
     {
-      header |= ((id >> 16) & 0xFF) << 16;
-      header |= ((id >> 24) & 0xFF) << 24;
+      header |= (id & 0xFF0000);
+      header |= (id & 0x1F000000); // 29 bits
     }
   }
 

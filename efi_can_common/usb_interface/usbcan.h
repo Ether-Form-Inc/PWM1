@@ -124,7 +124,8 @@ namespace usbcan
     int result{};
     int frame_len{};
 
-    while (!frame_is_complete(frame, frame_len))
+    uint32_t attempts{};
+    while (!frame_is_complete(frame, frame_len) && (attempts++ < 100 || frame_len > 0))
     {
       // If we have no bytes then recv the minimum for a valid frame. Else rcv 1 at a time lest we rcv multiple frames
       if (frame_len == 0)
@@ -148,7 +149,7 @@ namespace usbcan
       }
     }
 
-    if (print_traffic)
+    if (print_traffic && frame_len > 0)
     {
       fprintf(stderr, "<<< ");
       for (uint32_t i = 0; i < frame_len; i++)
@@ -252,27 +253,34 @@ namespace usbcan
     return tty_fd;
   }
 
-  static int receive_data_frame(const int tty_fd, uint8_t *frame, const int frame_len_max, uint32_t &id)
+  static int receive_data_frame(const int tty_fd, uint8_t *frame, const int frame_len_max, uint32_t &id,
+                                bool &is_extended)
   {
     uint8_t uart_frame[MAX_FRAME_SIZE];
     int ret_val = frame_recv(tty_fd, uart_frame, frame_len_max + 7);
 
+    uint32_t can_len = get_can_frame_size(uart_frame[1]);
+
     if ((uart_frame[1] & 0xe0) == 0xe0)
     {
+      is_extended = true;
+
       // Copy extended id
       memcpy(&id, uart_frame + 2, 4);
 
       // Copy extended frame back
-      memcpy(frame, uart_frame + 6, 8);
+      memcpy(frame, uart_frame + 6, can_len);
+
       return ret_val - 7;
     }
     else
     {
+      is_extended = false;
       // Copy std id mback
       memcpy(&id, uart_frame + 2, 2);
 
       // Copy standard frame back
-      memcpy(frame, uart_frame + 4, 8);
+      memcpy(frame, uart_frame + 4, can_len);
       return ret_val - 5;
     }
   }
