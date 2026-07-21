@@ -24,14 +24,15 @@ add_executable(${PROJECT_EFI_COMMON_TEST} ${efi_common_files_test})
 #
 #
 #TODO fetch contnent and build once by linking this through to the other stuff?
+
 target_include_directories(${PROJECT_EFI_COMMON_TEST} PRIVATE
   ${CMAKE_SOURCE_DIR}/efi_can_common
 
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_SOURCE_DIR}/tests/cli_app
-  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include
-  ${CMAKE_BINARY_DIR}/libuavcan/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
+  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 #  ${PROJECT_EFI_COMMON}

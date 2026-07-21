@@ -1,5 +1,6 @@
 #pragma once
-#include <iostream> // TODO: not great for STM
+// #include <iostream> // TODO: not great for STM
+//// TODO: We should add an ifdef posix or some other logger
 
 #include <uavcan/data_type.hpp>
 #include <uavcan/driver/can.hpp>
@@ -9,6 +10,8 @@
 #include <uavcan/node/subscriber.hpp>
 #include <uavcan/transport/perf_counter.hpp>
 #include <uavcan/transport/transfer_listener.hpp>
+
+#include <string>
 
 #include <etherform/Demo_broadcast.hpp>
 #include <etherform/Echo.hpp>
@@ -87,7 +90,7 @@ template <typename CAN_IF, typename SYS_CLK> class ICan_translator
 
     if (pub_res < 0)
     {
-      std::cerr << "Failed to publish demo broadcast." << std::endl;
+      // std::cerr << "Failed to publish demo broadcast." << std::endl;
     }
 #endif
 
@@ -122,7 +125,7 @@ template <typename CAN_IF, typename SYS_CLK> class ICan_translator
 
     if (srv_start_res < 0)
     {
-      std::cerr << "Failed to start echo service" << std::endl;
+      // std::cerr << "Failed to start echo service" << std::endl;
     }
 
     custom_initialization();
@@ -130,7 +133,7 @@ template <typename CAN_IF, typename SYS_CLK> class ICan_translator
     int node_start_res = m_ownship_node.start({m_node_priority});
     if (node_start_res < 0)
     {
-      std::cerr << "Failed to start the node; error: " + node_start_res << std::endl;
+      // std::cerr << "Failed to start the node; error: " + node_start_res << std::endl;
     }
     else
     {
