@@ -109,6 +109,7 @@ class Stm_can_iface : public ICanIface
     out_frame.id = rx_header.Identifier;
 
     out_frame.id |= CanFrame::FlagEFF;
+    out_frame.canfd = 0;
 
     return rx_header.DataLength;
   }
