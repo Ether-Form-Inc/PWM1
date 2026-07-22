@@ -69,11 +69,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     --specs=nano.specs
+    -ffunction-sections
+    -fdata-sections
+    -Os
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE
     -T ${CMAKE_SOURCE_DIR}/stm_generated/STM32G0B1KBTX_FLASH.ld
     -u _printf_float
+    -Wl,--gc-sections
+    -Wl,-Map=firmware.map
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

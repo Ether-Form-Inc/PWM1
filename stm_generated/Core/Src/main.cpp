@@ -256,14 +256,14 @@ int main(void)
 
   //// TODO: we need to indicate if servo here and the node id
 
-  // STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{0, true, 10};
-  // can_to_pwm.initialize();
+  static STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{0, true, 10};
+  can_to_pwm.initialize();
 
   volatile uint32_t counter{0};
-  while (counter++ < 1'000'000)
+  while (counter++ < 100)
     ;
 
-  // can_to_pwm.main();
+  can_to_pwm.main();
 
   while (1)
   {

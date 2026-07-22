@@ -39,7 +39,27 @@ class Stm_can_iface : public ICanIface
     hfdcan1.Init.ExtFiltersNbr = 0;
     hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
+    __HAL_RCC_FDCAN_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE(); // or whatever port your pins are on
+    __HAL_RCC_GPIOB_CLK_ENABLE(); // or whatever port your pins are on
+
     m_initialized = (HAL_FDCAN_Init(&hfdcan1) == HAL_OK);
+
+    HAL_FDCAN_ConfigTimestampCounter(&hfdcan1, FDCAN_TIMESTAMP_PRESC_1);
+    HAL_FDCAN_EnableTimestampCounter(&hfdcan1, FDCAN_TIMESTAMP_INTERNAL);
+
+    m_initialized &= (HAL_FDCAN_Start(&hfdcan1) == HAL_OK);
+
+    // FDCAN_FilterTypeDef filter = {0};
+
+    // filter.IdType = FDCAN_EXTENDED_ID;
+    // filter.FilterIndex = 0;
+    // filter.FilterType = FDCAN_FILTER_MASK;
+    // filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    // filter.FilterID1 = 0x00000000;
+    // filter.FilterID2 = 0x00000000;
+
+    // HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
     // tx_header.Identifier = (can_hardware_id << 16);
     tx_header.IdType = FDCAN_EXTENDED_ID;
@@ -68,14 +88,31 @@ class Stm_can_iface : public ICanIface
                   CanIOFlags &out_flags) override
   {
     out_flags = 0;
-    HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &rx_header, out_frame.data);
+
+    rx_header = {0};
+    memset(out_frame.data, 0, sizeof(out_frame.data));
+
+    uint32_t v{HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO0)};
+    if (v == 0)
+    {
+      return 0;
+    }
+
+    if (HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &rx_header, out_frame.data) != HAL_OK)
+    {
+      return 0;
+    }
 
     out_ts_monotonic = uavcan::MonotonicTime::fromUSec(rx_header.RxTimestamp);
+    out_ts_utc = uavcan::UtcTime::fromUSec(out_ts_monotonic.toUSec());
     out_frame.dlc = CanFrame::dataLengthToDlc(rx_header.DataLength);
     out_frame.id = rx_header.Identifier;
 
+    out_frame.id |= CanFrame::FlagEFF;
+
     return rx_header.DataLength;
   }
+  // TODO: We should probably have a conditional here (or just configure a filter to block non extended
 
   int16_t configureFilters(const CanFilterConfig *filter_configs, uint16_t num_configs) override
   {
@@ -132,8 +169,11 @@ class STM32_system_clock : public uavcan::ISystemClock
 
   ~STM32_system_clock() override = default;
 
+  mutable uint32_t count{10};
+
   uavcan::MonotonicTime getMonotonic() const override
   {
+    // return uavcan::MonotonicTime::fromMSec(count++);
     return uavcan::MonotonicTime::fromMSec(HAL_GetTick());
   }
 

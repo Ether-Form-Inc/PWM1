@@ -1,7 +1,5 @@
 #include <Can_to_pwm_translator.h>
 
-// #include <iostream>
-
 using namespace uavcan;
 
 template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
