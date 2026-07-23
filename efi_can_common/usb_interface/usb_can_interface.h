@@ -19,7 +19,7 @@ template <const char *tty_device, typename SYS_CLK = Dummy_system_clock> class U
   Usb_can_interface()
       : m_tty_fd(usbcan::adapter_init(tty_device, CANUSB_TTY_BAUD_RATE_DEFAULT))
   {
-    usbcan::command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_10000, CANUSB_MODE::CANUSB_MODE_NORMAL);
+    usbcan::command_settings(m_tty_fd, CANUSB_SPEED::CANUSB_SPEED_1000000, CANUSB_MODE::CANUSB_MODE_NORMAL);
   }
   ~Usb_can_interface() override
   {
@@ -36,6 +36,7 @@ template <const char *tty_device, typename SYS_CLK = Dummy_system_clock> class U
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
                   CanIOFlags &out_flags) override
   {
+    out_frame.id = 0;
     out_ts_monotonic = sys_clk.getMonotonic();
     out_ts_utc = sys_clk.getUtc();
 
