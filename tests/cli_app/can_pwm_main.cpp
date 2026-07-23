@@ -4,16 +4,21 @@
 
 #include <cstdint>
 #include <iostream>
+#include <thread>
 
 inline constexpr char tty0[] = "/dev/ttyUSB0";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_hand{true, 1, 10};
-  c_hand.initialize();
+  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 13};
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+  c_cmd.initialize();
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
   std::cout << "Etherform CLI CAN-PWM interface. Copyright 2026." << std::endl;
-  std::cout << "Servo [0] or Motor [1]? Please remove props fro motor before use." << std::endl;
+  std::cout << "Servo [0] or Motor [1]? Please remove props before motor before use." << std::endl;
   int input_servo;
   std::cin >> input_servo;
 
@@ -31,7 +36,7 @@ int main()
       }
       else
       {
-        c_hand.command_servo_pwm(servo_val);
+        c_cmd.command_servo_pwm(servo_val);
       }
     }
   }
