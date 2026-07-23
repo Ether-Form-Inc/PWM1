@@ -57,15 +57,16 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void handle_servo_set(const ReceivedDataStructure<servo_handler_type_t> &data) override
   {
-    auto cmd = data.commands[0];
-    if (cmd.actuator_id == Base::get_actuator_id())
+    const uint32_t num_commands = data.commands.size() > 4 ? 4 : data.commands.size();
+    for (uint32_t c = 0; c < num_commands; c++)
     {
-      uint16_t v = cmd.command_value;
-
-      // set_servo(0, v);
-      //  set_servo(1, v);
-      //  set_servo(2, v);
-      set_servo(3, v);
+      auto cmd = data.commands[c];
+      // This means that one of the local actuators should be modified based on this command
+      if (cmd.actuator_id + 4 > Base::get_actuator_id())
+      {
+        uint16_t v = cmd.command_value;
+        set_servo(cmd.actuator_id - Base::get_actuator_id(), v);
+      }
     }
   }
 

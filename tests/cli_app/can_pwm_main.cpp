@@ -5,12 +5,14 @@
 #include <cstdint>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 inline constexpr char tty0[] = "/dev/ttyUSB0";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 13};
+  typedef Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> Command_t;
+  Command_t c_cmd{true, 1, 13};
 
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -22,22 +24,37 @@ int main()
   int input_servo;
   std::cin >> input_servo;
 
+  std::cout << "How many simultaneous outputs would you like to update?" << std::endl;
+  uint32_t simult_outputs{1};
+  std::cin >> simult_outputs;
+
   bool is_servo{input_servo == 0};
   if (is_servo)
   {
     while (1)
     {
-      uint32_t servo_val;
-      std::cout << "Enter value between 0 and 2000 to command servo 0." << std::endl;
-      std::cin >> servo_val;
-      if (servo_val > 2000)
+      std::cout << "************************************" << std::endl;
+      std::vector<Command_t::Servo_def> servos;
+      for (uint32_t c = 0; c < simult_outputs; c++)
       {
-        std::cout << "Invalid value, ignoring value." << std::endl;
+        Command_t::Servo_def servo;
+
+        std::cout << "Servo: " << c + 1 << "/" << simult_outputs << std::endl;
+        std::cout << "Which actuator would you like to update?" << std::endl;
+        std::cin >> servo.actuator_id;
+
+        std::cout << "Enter value between 0 and 2000 to command servo 0." << std::endl;
+        std::cin >> servo.pwm_val;
+        if (servo.pwm_val > 2000)
+        {
+          std::cout << "Invalid value, ignoring value." << std::endl;
+        }
+        else
+        {
+          servos.push_back(servo);
+        }
       }
-      else
-      {
-        c_cmd.command_servo_pwm(servo_val);
-      }
+      c_cmd.command_servo_pwm(servos.data(), servos.size());
     }
   }
   else

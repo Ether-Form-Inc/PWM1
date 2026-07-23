@@ -12,7 +12,8 @@ inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> c_cmd{true, 1, 13};
+  typedef Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> Command_t;
+  Command_t c_cmd{true, 1, 13};
 
   typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Dummy_system_clock> posix_handler_t;
   posix_handler_t c_rcv{0, true, 11};
@@ -44,7 +45,10 @@ int main()
       }
       else
       {
-        c_cmd.command_servo_pwm(servo_val);
+        Command_t::Servo_def servo;
+        servo.actuator_id = 0;
+        servo.pwm_val = servo_val;
+        c_cmd.command_servo_pwm(&servo, 1);
       }
     }
   }
