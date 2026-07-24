@@ -54,22 +54,27 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void handle_servo_set(const ReceivedDataStructure<servo_handler_type_t> &data) override
   {
-    const uint32_t num_commands = data.commands.size() > 4 ? 4 : data.commands.size();
+    const uint32_t num_commands = data.commands.size();
     for (uint32_t c = 0; c < num_commands; c++)
     {
       auto cmd = data.commands[c];
+
       // This means that one of the local actuators should be modified based on this command
-      if (cmd.actuator_id + 4 > Base::get_actuator_id())
+      if (cmd.actuator_id >= Base::get_actuator_id())
       {
-        if (cmd.command_type == servo_command_t::COMMAND_TYPE_PWM)
+        const uint32_t local_pwm_output{cmd.actuator_id - Base::get_actuator_id()};
+        if (local_pwm_output < NUM_PWM_OUTPUTS)
         {
-          uint16_t v = cmd.command_value;
-          set_us_servo(cmd.actuator_id - Base::get_actuator_id(), v);
-        }
-        if (cmd.command_type == servo_command_t::COMMAND_TYPE_UNITLESS)
-        {
-          float v = cmd.command_value;
-          set_unitless_servo(cmd.actuator_id - Base::get_actuator_id(), v);
+          if (cmd.command_type == servo_command_t::COMMAND_TYPE_PWM)
+          {
+            uint16_t v = cmd.command_value;
+            set_us_servo(cmd.actuator_id - Base::get_actuator_id(), v);
+          }
+          if (cmd.command_type == servo_command_t::COMMAND_TYPE_UNITLESS)
+          {
+            float v = cmd.command_value;
+            set_unitless_servo(cmd.actuator_id - Base::get_actuator_id(), v);
+          }
         }
       }
     }
