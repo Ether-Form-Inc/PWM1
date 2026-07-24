@@ -43,10 +43,15 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // Initialize PCA
     m_initialized &= PCA9685_Init();
 
-    // Compute range of servo us for unitless conversion
+    // Compute range of servo/motor us for unitless conversion
     for (uint32_t c = 0; c < 4; c++)
     {
       m_servo_range_us[c] = maximum_servo_us[c] - minimum_servo_us[c];
+    }
+
+    for (uint32_t c = 0; c < 4; c++)
+    {
+      m_motor_range_us[c] = maximum_motor_us[c] - minimum_motor_us[c];
     }
   }
 
@@ -57,7 +62,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     const uint32_t num_commands = data.commands.size();
     for (uint32_t c = 0; c < num_commands; c++)
     {
-      auto cmd = data.commands[c];
+      servo_command_t cmd = data.commands[c];
 
       // This means that one of the local actuators should be modified based on this command
       if (cmd.actuator_id >= Base::get_actuator_id())
@@ -82,6 +87,22 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void handle_motor_set(const ReceivedDataStructure<motor_handler_type_t> &data) override
   {
+    const uint32_t num_commands = data.cmd.size();
+
+    // Stop at the minimum of maximum internal id or size of data
+    const uint32_t base_actuator_id{Base::get_actuator_id()};
+    const uint32_t loop_until{num_commands > base_actuator_id + 4 ? base_actuator_id + 4 : num_commands};
+
+    // c is actuator id
+    for (uint32_t c = base_actuator_id; c < loop_until; c++)
+    {
+      int16_t motor_cmd = data.cmd[c];
+      //(data.cmd[c] & 0xfffc) / 4; // Clear bottom two bits and then "bit shift" 2 bits down excluding sign bit
+
+      // This means that one of the local actuators should be modified based on this command
+      const uint32_t local_pwm_output{c - base_actuator_id};
+      set_motor(local_pwm_output, motor_cmd);
+    }
   }
 
   void handle_read_pwm() override
@@ -92,6 +113,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];
+  uint16_t m_motor_range_us[NUM_PWM_OUTPUTS];
 
   bool PCA9685_Init(void)
   {
@@ -122,7 +144,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     return ((pulse_us * 4096ul) / 20000ul);
   }
 
-  void set_servo(uint8_t channel_x, uint16_t on, uint16_t off)
+  void set_pwm(uint8_t channel_x, uint16_t on, uint16_t off)
   {
     uint8_t pwm_val[4];
     pwm_val[0] = on & 0xFF;
@@ -146,6 +168,25 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   {
     const uint16_t on{0};
     const uint16_t off{convert_pulse_to_count(pulse_us)};
-    set_servo(channel_x, on, off);
+    set_pwm(channel_x, on, off);
+  }
+
+  void set_motor(uint8_t channel_x, int16_t cmd)
+  {
+    // We need to map an int14 to the pwm range
+    constexpr int16_t maximum_motor_cmd{(1 << 13) - 1};
+    constexpr int16_t minimum_motor_cmd{-(1 << 13)};
+    constexpr uint16_t motor_range{(uint16_t)(maximum_motor_cmd - minimum_motor_cmd)};
+
+    uint16_t positive_cmd = static_cast<uint16_t>(cmd + (int16_t)(2 << 12));
+    float val_thresh = static_cast<float>(positive_cmd) / static_cast<float>(motor_range);
+    uint16_t mapped_pwm_offset_from_min =
+        static_cast<uint16_t>(val_thresh * static_cast<float>(m_motor_range_us[channel_x]));
+
+    uint16_t pwm_pulse_us = mapped_pwm_offset_from_min + minimum_motor_us[channel_x];
+
+    const uint16_t on{0};
+    const uint16_t off{convert_pulse_to_count(pwm_pulse_us)};
+    set_pwm(channel_x, on, off);
   }
 };

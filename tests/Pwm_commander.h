@@ -3,6 +3,8 @@
 #include <uavcan/equipment/actuator/Command.hpp>
 #include <uavcan/equipment/esc/RawCommand.hpp>
 
+#include <iostream>
+
 using namespace uavcan;
 
 // TODO: This object will be a derived object of  ICAn..
@@ -49,6 +51,23 @@ template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_t
     }
 
     m_servo_broadcast.broadcast(msg);
+  }
+
+  void command_motor_pwm(int16_t *p_motor, uint32_t num_motors)
+  {
+    motor_handler_type_t msg;
+    for (uint32_t c = 0; c < num_motors; c++)
+    {
+      // uint16_t int14 = ((p_motor[c] * 4) & 0xfffc);
+      msg.cmd.push_back(p_motor[c]);
+    }
+
+    for (uint32_t c = 0; c < num_motors; c++)
+    {
+      std::cout << "Commanded: " << msg.cmd[c] << std::endl;
+    }
+
+    m_motor_broadcast.broadcast(msg);
   }
 
   void custom_initialization() override
