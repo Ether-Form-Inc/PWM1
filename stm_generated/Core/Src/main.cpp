@@ -74,7 +74,8 @@ int main(void)
     actuator_id |= (1 << 2);
   }
 
-  STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{actuator_id, is_servo, 10};
+  // This needs to be static as we will blow through the stack otherwise
+  static STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{actuator_id, is_servo, 10};
   can_to_pwm.initialize();
 
   // Ensure uavcan has time to finish node transmission

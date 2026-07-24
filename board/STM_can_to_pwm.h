@@ -7,19 +7,18 @@ using namespace uavcan;
 
 template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
 {
+  static constexpr uint32_t NUM_PWM_OUTPUTS{4};
   static constexpr uint8_t PCA9685_ADDR{0x43};
+
   typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
   typedef uavcan::equipment::esc::RawCommand motor_handler_type_t;
   typedef uavcan::equipment::actuator::Command servo_command_t;
 
   typedef Can_to_pwm_translator<CAN_IF, SYS_CLK> Base;
 
-  const uint16_t m_servo_range_us;
-
   public:
   STM_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
-      , m_servo_range_us(maximum_servo_us - minimum_servo_us) // Compute range of servo us for unitless conversion
 
   {
     // Initialize hi2c2 constants
@@ -43,6 +42,12 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
     // Initialize PCA
     m_initialized &= PCA9685_Init();
+
+    // Compute range of servo us for unitless conversion
+    for (uint32_t c = 0; c < 4; c++)
+    {
+      m_servo_range_us[c] = maximum_servo_us[c] - minimum_servo_us[c];
+    }
   }
 
   // The HW pins will determine actuator id offset. But it is assumed that ch 0-3 have ids = offset + (0-3)
@@ -81,6 +86,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   private:
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
+  uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];
 
   bool PCA9685_Init(void)
   {
@@ -126,7 +132,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void set_unitless_servo(uint8_t channel_x, float unitless)
   {
-    uint16_t pulse_us = static_cast<uint16_t>(((unitless + 1.f) / 2.f) * m_servo_range_us) + minimum_servo_us;
+    uint16_t pulse_us =
+        static_cast<uint16_t>(((unitless + 1.f) / 2.f) * m_servo_range_us[channel_x]) + minimum_servo_us[channel_x];
     set_us_servo(channel_x, pulse_us);
   }
 
