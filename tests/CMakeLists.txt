@@ -24,16 +24,6 @@ set(LIBUAVCAN_POSIX_BUILD
     CACHE STRING "Path to libuavcan build dir" FORCE
 )
 
-set(LIBCANARD_POSIX_SRC 
-    "${CMAKE_BINARY_DIR}/libcanard_posix_src" 
-    CACHE STRING "Path to libcanard source" FORCE
-)
-
-set(LIBCANARD_POSIX_BUILD 
-    "${CMAKE_BINARY_DIR}/libcanard_posix_build" 
-    CACHE STRING "Path to libcanard build dir" FORCE
-)
-
 #***************** Build UAVCAN target **************
 #libuavcan has some cmake warnings here regarding python so we suppress them for this project
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
@@ -48,19 +38,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(libuavcan_posix)
-
-#libcanard
-FetchContent_Declare(
-  libcanard_posix
-  GIT_REPOSITORY https://github.com/dronecan/libcanard.git 
-  GIT_TAG        master 
-  GIT_SHALLOW    FALSE
-  SOURCE_DIR     ${LIBCANARD_POSIX_SRC}
-  BINARY_DIR     ${LIBCANARD_POSIX_BUILD}
-)
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(libcanard_posix)
-
 
 target_compile_definitions(uavcan PRIVATE
     UAVCAN_CPP_VERSION=UAVCAN_CPP11
@@ -89,7 +66,7 @@ file(GLOB_RECURSE loopback_test_files
 )
 
 file(GLOB_RECURSE efi_common_files 
-  ${CMAKE_SOURCE_DIR}/efi_can_common/*.cpp
+  ${CMAKE_BINARY_DIR}/efi_can_common
 )
 
 file(GLOB_RECURSE cli_files 
@@ -121,10 +98,8 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
-  ${LIBCANARD_POSIX_SRC}/canard
-  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${CMAKE_BINARY_DIR}/efi_can_common
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
@@ -153,10 +128,8 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
-  ${LIBCANARD_POSIX_SRC}/canard
-  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${CMAKE_BINARY_DIR}/efi_can_common
 )
 
 target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
@@ -176,10 +149,8 @@ target_include_directories(${PROJECT_CLI_APP} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
-  ${LIBCANARD_POSIX_SRC}/canard
-  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${CMAKE_BINARY_DIR}/efi_can_common
 )
 
 target_compile_definitions(${PROJECT_CLI_APP} PRIVATE
@@ -201,10 +172,8 @@ target_include_directories(${PROJECT_CLI_RESP} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
-  ${LIBCANARD_POSIX_SRC}/canard
-  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${CMAKE_BINARY_DIR}/efi_can_common
 )
 
 
