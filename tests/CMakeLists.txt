@@ -17,17 +17,6 @@ FetchContent_MakeAvailable(gtest)
 #libuavcan has some cmake warnings here regarding python so we suppress them for this project
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
 
-FetchContent_Declare(
-  libuavcan_posix
-  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
-  GIT_TAG        EFI_main
-  GIT_SHALLOW    TRUE
-  SOURCE_DIR    ${LIBUAVCAN_SRC}
-  BINARY_DIR     ${LIBUAVCAN_BUILD}
-)
-
-FetchContent_MakeAvailable(libuavcan_posix)
-
 target_compile_definitions(uavcan PRIVATE
     UAVCAN_CPP_VERSION=UAVCAN_CPP11
 )

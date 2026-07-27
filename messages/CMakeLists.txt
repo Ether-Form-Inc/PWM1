@@ -67,19 +67,11 @@ FetchContent_Declare(
 )
 FetchContent_Populate(dsdl)
 
-FetchContent_Declare(
-  libuavcan
-  GIT_REPOSITORY https://github.com/dronecan/libuavcan.git
-  GIT_TAG "main"
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/libuavcan
-)
-FetchContent_Populate(libuavcan)
-
 execute_process(
   COMMAND ${CMAKE_COMMAND} -E remove_directory
           ${CMAKE_SOURCE_DIR}/messages/compiled
 
-  COMMAND ../libuavcan/libuavcan/dsdl_compiler/libuavcan_dsdlc
+          COMMAND ${LIBUAVCAN_SRC}/libuavcan/dsdl_compiler/libuavcan_dsdlc
           ${CMAKE_SOURCE_DIR}/messages/etherform
           -O ${CMAKE_SOURCE_DIR}/messages/compiled
 

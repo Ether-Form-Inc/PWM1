@@ -2,8 +2,6 @@ file(GLOB hal_source ${stm32_g0xx_SOURCE_DIR}/Src/*.c)
 
 list(FILTER hal_source EXCLUDE REGEX "template\\.c$")
 
-# file(RENAME ${CMAKE_BINARY_DIR}/stm32_g0xx/Inc/stm32g0xx_hal_conf_template.h ${CMAKE_BINARY_DIR}/stm32_g0xx/Inc/stm32g0xx_hal_conf.h)
-
 add_library(stm32cubeg0 STATIC ${hal_source})
 
 target_include_directories(stm32cubeg0 PUBLIC
@@ -15,8 +13,6 @@ target_include_directories(stm32cubeg0 PUBLIC
 )
 
 target_compile_definitions(stm32cubeg0 PUBLIC STM32G0B1xx)
-
-# add_compile_definitions(USE_HAL_DRIVER)
 
 file(GLOB source 
   ${CMAKE_CURRENT_LIST_DIR}/Core/Src/*.c
@@ -36,9 +32,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libuavcan_stm)
 
-#set(PYTHON_EXECUTABLE "echo hi" CACHE STRING "" FORCE)
-#set(PythonInterp_FOUND FALSE)
-
 add_executable(${PROJECT_NAME} ${source})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}.elf)
@@ -53,7 +46,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-#  __cplusplus=1
     UAVCAN_CPP_VERSION=UAVCAN_CPP11
 )
 

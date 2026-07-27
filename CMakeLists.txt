@@ -37,6 +37,17 @@ if(${ARCH} STREQUAL "STM")
 
   add_subdirectory(stm_generated)
 else()
+
+  FetchContent_Declare(
+    libuavcan
+    GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
+    GIT_TAG        EFI_main
+    GIT_SHALLOW    TRUE
+    SOURCE_DIR    ${LIBUAVCAN_SRC}
+    BINARY_DIR     ${LIBUAVCAN_BUILD}
+  )
+  FetchContent_MakeAvailable(libuavcan)
+
   project(can_to_pwm_firmware_test)
   add_subdirectory(messages)
   add_subdirectory(tests)
