@@ -30,7 +30,7 @@ template <typename CAN_IF, typename SYS_CLK> class Can_to_pwm_translator : publi
 
   virtual void handle_motor_set(const ReceivedDataStructure<motor_handler_type_t> &data) = 0;
 
-  // TODO:
+  // TODO: After implementing echo command we must handle it
   virtual void handle_read_pwm() = 0;
 
   void custom_initialization() override

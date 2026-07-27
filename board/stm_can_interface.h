@@ -50,21 +50,21 @@ class Stm_can_iface : public ICanIface
 
     m_initialized &= (HAL_FDCAN_Start(&hfdcan1) == HAL_OK);
 
-    // FDCAN_FilterTypeDef filter = {0};
+    /* Block out standard can frames*/
+    FDCAN_FilterTypeDef filter = {0};
+    filter.IdType = FDCAN_EXTENDED_ID;
+    filter.FilterIndex = 0;
+    filter.FilterType = FDCAN_FILTER_MASK;
+    filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
 
-    // filter.IdType = FDCAN_EXTENDED_ID;
-    // filter.FilterIndex = 0;
-    // filter.FilterType = FDCAN_FILTER_MASK;
-    // filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-    // filter.FilterID1 = 0x00000000;
-    // filter.FilterID2 = 0x00000000;
+    // Accept all extended IDs
+    filter.FilterID1 = 0x00000000;
+    filter.FilterID2 = 0x00000000;
 
-    // HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
+    m_initialized &= (HAL_FDCAN_ConfigFilter(&hfdcan1, &filter) == HAL_OK);
 
-    // tx_header.Identifier = (can_hardware_id << 16);
     tx_header.IdType = FDCAN_EXTENDED_ID;
     tx_header.TxFrameType = FDCAN_DATA_FRAME;
-    // tx_header.DataLength = FDCAN_DLC_BYTES_4;
     tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
     tx_header.BitRateSwitch = FDCAN_BRS_OFF;
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
@@ -113,7 +113,6 @@ class Stm_can_iface : public ICanIface
 
     return rx_header.DataLength;
   }
-  // TODO: We should probably have a conditional here (or just configure a filter to block non extended
 
   int16_t configureFilters(const CanFilterConfig *filter_configs, uint16_t num_configs) override
   {

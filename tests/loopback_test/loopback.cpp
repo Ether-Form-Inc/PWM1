@@ -11,7 +11,6 @@ inline constexpr char tty0[] = "/dev/ttyUSB0";
 inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
-  // TODO: Make this usbcan not dummy iface
   typedef Pwm_commander<Usb_can_interface<tty0>, Posix_system_clock> Command_t;
   Command_t c_cmd{true, 1, 13};
 
