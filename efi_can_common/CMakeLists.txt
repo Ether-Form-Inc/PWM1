@@ -31,8 +31,8 @@ target_include_directories(${PROJECT_EFI_COMMON_TEST} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_SOURCE_DIR}/tests/cli_app
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_SRC}/libuavcan/include
+  ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 #  ${PROJECT_EFI_COMMON}

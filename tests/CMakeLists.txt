@@ -13,17 +13,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(gtest)
 
-# TODO:Put this in top-level CMakeLists.txt (before any FetchContent)
-set(LIBUAVCAN_POSIX_SRC 
-    "${CMAKE_BINARY_DIR}/libuavcan_posix_src" 
-    CACHE STRING "Path to libuavcan source" FORCE
-)
-
-set(LIBUAVCAN_POSIX_BUILD 
-    "${CMAKE_BINARY_DIR}/libuavcan_posix_build" 
-    CACHE STRING "Path to libuavcan build dir" FORCE
-)
-
 #***************** Build UAVCAN target **************
 #libuavcan has some cmake warnings here regarding python so we suppress them for this project
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
@@ -33,8 +22,8 @@ FetchContent_Declare(
   GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
   GIT_TAG        EFI_main
   GIT_SHALLOW    TRUE
-  SOURCE_DIR    ${LIBUAVCAN_POSIX_SRC}
-  BINARY_DIR     ${LIBUAVCAN_POSIX_BUILD}
+  SOURCE_DIR    ${LIBUAVCAN_SRC}
+  BINARY_DIR     ${LIBUAVCAN_BUILD}
 )
 
 FetchContent_MakeAvailable(libuavcan_posix)
@@ -96,8 +85,8 @@ endif()
 target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_SRC}/libuavcan/include
+  ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -126,8 +115,8 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_SOURCE_DIR}/tests/cli_app
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_SRC}/libuavcan/include
+  ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -147,8 +136,8 @@ target_include_directories(${PROJECT_CLI_APP} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_SOURCE_DIR}/tests/cli_app
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_SRC}/libuavcan/include
+  ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -170,8 +159,8 @@ target_include_directories(${PROJECT_CLI_RESP} PRIVATE
   ${CMAKE_SOURCE_DIR}/board
   ${CMAKE_SOURCE_DIR}/tests
   ${CMAKE_SOURCE_DIR}/tests/cli_app
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
-  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBUAVCAN_SRC}/libuavcan/include
+  ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )

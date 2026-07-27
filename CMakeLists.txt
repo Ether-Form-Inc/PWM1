@@ -1,6 +1,26 @@
 cmake_minimum_required(VERSION 3.15)
 include(FetchContent)
 
+
+set(LIBUAVCAN_SRC 
+    "${CMAKE_BINARY_DIR}/libuavcan_src" 
+    CACHE STRING "Path to libuavcan source" FORCE
+)
+
+set(LIBUAVCAN_BUILD 
+    "${CMAKE_BINARY_DIR}/libuavcan_build" 
+    CACHE STRING "Path to libuavcan build dir" FORCE
+)
+
+#FetchContent_Declare(
+#  efi_can_common 
+#  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_can_common.git 
+#  GIT_TAG main
+#  SOURCE_DIR ${CMAKE_BINARY_DIR}/efi_can_common
+#)
+#FetchContent_MakeAvailable(efi_can_common)
+#
+
 set(ARCH "STM" CACHE STRING "Target architecture")
 
 if(${ARCH} STREQUAL "STM")
