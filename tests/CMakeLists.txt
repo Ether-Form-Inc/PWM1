@@ -30,8 +30,8 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
   libuavcan_posix
-  GIT_REPOSITORY https://github.com/dronecan/libuavcan.git
-  GIT_TAG        main
+  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
+  GIT_TAG        EFI_main
   GIT_SHALLOW    TRUE
   SOURCE_DIR    ${LIBUAVCAN_POSIX_SRC}
   BINARY_DIR     ${LIBUAVCAN_POSIX_BUILD}
@@ -66,7 +66,7 @@ file(GLOB_RECURSE loopback_test_files
 )
 
 file(GLOB_RECURSE efi_common_files 
-  ${CMAKE_BINARY_DIR}/efi_can_common
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 file(GLOB_RECURSE cli_files 
@@ -99,7 +99,7 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_BINARY_DIR}/efi_can_common
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
@@ -129,7 +129,7 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_BINARY_DIR}/efi_can_common
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
@@ -150,7 +150,7 @@ target_include_directories(${PROJECT_CLI_APP} PRIVATE
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_BINARY_DIR}/efi_can_common
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 target_compile_definitions(${PROJECT_CLI_APP} PRIVATE
@@ -173,7 +173,7 @@ target_include_directories(${PROJECT_CLI_RESP} PRIVATE
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_BINARY_DIR}/efi_can_common
+  ${CMAKE_SOURCE_DIR}/efi_can_common
 )
 
 
