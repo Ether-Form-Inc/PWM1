@@ -1,7 +1,7 @@
 #include <Posix_can_to_pwm.h>
+#include <Posix_system_clock.h>
 #include <Pwm_commander.h>
-#include <dummy_can_interface.h> // TODO: Seperate system clock
-#include <usb_interface/usb_can_interface.h>
+#include <usb_interface/Usb_can_interface.h>
 
 #include <cstdint>
 #include <iostream>
@@ -10,8 +10,7 @@
 inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
-  // TODO: Make this usbcan not dummy iface
-  typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Dummy_system_clock> posix_handler_t;
+  typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Posix_system_clock> posix_handler_t;
   posix_handler_t c_rcv{0, true, 11};
 
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));

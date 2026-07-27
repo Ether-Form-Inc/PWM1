@@ -1,6 +1,5 @@
 #include <Pwm_commander.h>
-#include <dummy_can_interface.h>
-#include <usb_interface/usb_can_interface.h>
+#include <usb_interface/Usb_can_interface.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -12,7 +11,7 @@ inline constexpr char tty0[] = "/dev/ttyUSB0";
 int main()
 {
   // TODO: Make this usbcan not dummy iface
-  typedef Pwm_commander<Usb_can_interface<tty0>, Dummy_system_clock> Command_t;
+  typedef Pwm_commander<Usb_can_interface<tty0>, Posix_system_clock> Command_t;
   Command_t c_cmd{true, 1, 13};
 
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));

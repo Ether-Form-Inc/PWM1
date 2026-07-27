@@ -7,7 +7,6 @@
 
 using namespace uavcan;
 
-// TODO: This object will be a derived object of  ICAn..
 template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_translator<CAN_IF, SYS_CLK>
 {
   typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
