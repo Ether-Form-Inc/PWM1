@@ -44,7 +44,7 @@ file(GLOB_RECURSE loopback_test_files
 )
 
 file(GLOB_RECURSE efi_common_files 
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${EFI_CAN_COMMON_SRC}
 )
 
 file(GLOB_RECURSE cli_files 
@@ -77,7 +77,7 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${LIBUAVCAN_SRC}/libuavcan/include
   ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${EFI_CAN_COMMON_SRC}
 )
 
 target_link_libraries(${PROJECT_TEST_NAME} PRIVATE
@@ -107,7 +107,7 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${LIBUAVCAN_SRC}/libuavcan/include
   ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${EFI_CAN_COMMON_SRC}
 )
 
 target_compile_definitions(${PROJECT_LOOPBACK} PRIVATE
@@ -128,7 +128,7 @@ target_include_directories(${PROJECT_CLI_APP} PRIVATE
   ${LIBUAVCAN_SRC}/libuavcan/include
   ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${EFI_CAN_COMMON_SRC}
 )
 
 target_compile_definitions(${PROJECT_CLI_APP} PRIVATE
@@ -151,7 +151,7 @@ target_include_directories(${PROJECT_CLI_RESP} PRIVATE
   ${LIBUAVCAN_SRC}/libuavcan/include
   ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
   ${CMAKE_SOURCE_DIR}/messages/compiled
-  ${CMAKE_SOURCE_DIR}/efi_can_common
+  ${EFI_CAN_COMMON_SRC}
 )
 
 

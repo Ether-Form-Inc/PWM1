@@ -41,7 +41,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${LIBUAVCAN_SRC}/libuavcan/include
     ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
     ${CMAKE_SOURCE_DIR}/messages/compiled
-    ${CMAKE_SOURCE_DIR}/efi_can_common
+    ${EFI_CAN_COMMON_SRC} 
     ${CMAKE_CURRENT_LIST_DIR}/Core/Inc
 )
 

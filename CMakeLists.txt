@@ -12,14 +12,25 @@ set(LIBUAVCAN_BUILD
     CACHE STRING "Path to libuavcan build dir" FORCE
 )
 
-#FetchContent_Declare(
-#  efi_can_common 
-#  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_can_common.git 
-#  GIT_TAG main
-#  SOURCE_DIR ${CMAKE_BINARY_DIR}/efi_can_common
-#)
-#FetchContent_MakeAvailable(efi_can_common)
-#
+set(EFI_CAN_COMMON_SRC 
+    "${CMAKE_BINARY_DIR}/efi_can_common_src" 
+    CACHE STRING "Path to efi_can_common source" FORCE
+)
+
+set(EFI_CAN_COMMON_BUILD 
+    "${CMAKE_BINARY_DIR}/efi_can_common_build" 
+    CACHE STRING "Path to efi_can_common build dir" FORCE
+)
+
+FetchContent_Declare(
+  efi_can_common 
+  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_can_common.git 
+  GIT_TAG        main 
+  GIT_SHALLOW    TRUE
+  SOURCE_DIR     ${EFI_CAN_COMMON_SRC}
+  BINARY_DIR     ${EFI_CAN_COMMON_BUILD}
+)
+FetchContent_Populate(efi_can_common)
 
 set(ARCH "STM" CACHE STRING "Target architecture")
 
@@ -43,7 +54,7 @@ else()
     GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
     GIT_TAG        EFI_main
     GIT_SHALLOW    TRUE
-    SOURCE_DIR    ${LIBUAVCAN_SRC}
+    SOURCE_DIR     ${LIBUAVCAN_SRC}
     BINARY_DIR     ${LIBUAVCAN_BUILD}
   )
   FetchContent_MakeAvailable(libuavcan)
@@ -51,7 +62,6 @@ else()
   project(can_to_pwm_firmware_test)
   add_subdirectory(messages)
   add_subdirectory(tests)
-  add_subdirectory(efi_can_common)
 endif()
 
 
