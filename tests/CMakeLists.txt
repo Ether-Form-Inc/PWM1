@@ -24,6 +24,16 @@ set(LIBUAVCAN_POSIX_BUILD
     CACHE STRING "Path to libuavcan build dir" FORCE
 )
 
+set(LIBCANARD_POSIX_SRC 
+    "${CMAKE_BINARY_DIR}/libcanard_posix_src" 
+    CACHE STRING "Path to libcanard source" FORCE
+)
+
+set(LIBCANARD_POSIX_BUILD 
+    "${CMAKE_BINARY_DIR}/libcanard_posix_build" 
+    CACHE STRING "Path to libcanard build dir" FORCE
+)
+
 #***************** Build UAVCAN target **************
 #libuavcan has some cmake warnings here regarding python so we suppress them for this project
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
@@ -38,6 +48,19 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(libuavcan_posix)
+
+#libcanard
+FetchContent_Declare(
+  libcanard_posix
+  GIT_REPOSITORY https://github.com/dronecan/libcanard.git 
+  GIT_TAG        master 
+  GIT_SHALLOW    FALSE
+  SOURCE_DIR     ${LIBCANARD_POSIX_SRC}
+  BINARY_DIR     ${LIBCANARD_POSIX_BUILD}
+)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(libcanard_posix)
+
 
 target_compile_definitions(uavcan PRIVATE
     UAVCAN_CPP_VERSION=UAVCAN_CPP11
@@ -73,6 +96,10 @@ file(GLOB_RECURSE cli_files
   ${CMAKE_CURRENT_LIST_DIR}/cli_app/*.cpp
 )
 
+file(GLOB_RECURSE cli_resp_files 
+  ${CMAKE_CURRENT_LIST_DIR}/cli_responder/*.cpp
+)
+
 # ************ Bool Tests ***************
 add_executable(${PROJECT_TEST_NAME} ${bool_test_files} ${efi_can_common} ${board_files})
 
@@ -94,6 +121,8 @@ target_include_directories(${PROJECT_TEST_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBCANARD_POSIX_SRC}/canard
+  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -124,6 +153,8 @@ target_include_directories(${PROJECT_LOOPBACK} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBCANARD_POSIX_SRC}/canard
+  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -145,6 +176,8 @@ target_include_directories(${PROJECT_CLI_APP} PRIVATE
   ${CMAKE_SOURCE_DIR}/tests/cli_app
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
   ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBCANARD_POSIX_SRC}/canard
+  ${LIBCANARD_POSIX_SRC}
   ${CMAKE_SOURCE_DIR}/messages/compiled
   ${CMAKE_SOURCE_DIR}/efi_can_common
 )
@@ -156,3 +189,30 @@ target_compile_definitions(${PROJECT_CLI_APP} PRIVATE
 target_link_libraries(${PROJECT_CLI_APP} PRIVATE
   uavcan
 )
+
+# ********** CLI Responder ************
+set(PROJECT_CLI_RESP ${PROJECT_NAME}_CLI_RESP)
+
+add_executable(${PROJECT_CLI_RESP} ${cli_resp_files} ${efi_can_common})
+
+target_include_directories(${PROJECT_CLI_RESP} PRIVATE
+  ${CMAKE_SOURCE_DIR}/board
+  ${CMAKE_SOURCE_DIR}/tests
+  ${CMAKE_SOURCE_DIR}/tests/cli_app
+  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include
+  ${LIBUAVCAN_POSIX_SRC}/libuavcan/include/dsdlc_generated
+  ${LIBCANARD_POSIX_SRC}/canard
+  ${LIBCANARD_POSIX_SRC}
+  ${CMAKE_SOURCE_DIR}/messages/compiled
+  ${CMAKE_SOURCE_DIR}/efi_can_common
+)
+
+
+target_compile_definitions(${PROJECT_CLI_RESP} PRIVATE
+    UAVCAN_CPP_VERSION=UAVCAN_CPP11
+)
+
+target_link_libraries(${PROJECT_CLI_RESP} PRIVATE
+  uavcan
+)
+
