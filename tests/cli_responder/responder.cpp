@@ -17,7 +17,8 @@ int main()
 
   c_rcv.initialize();
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  bool stop{false};
 
-  c_rcv.main();
+  c_rcv.main(stop);
   return 0;
 }

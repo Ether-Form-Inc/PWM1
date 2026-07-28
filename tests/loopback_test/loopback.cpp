@@ -22,8 +22,9 @@ int main()
   c_cmd.initialize();
   c_rcv.initialize();
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  bool stop{false};
 
-  std::thread t(&posix_handler_t::main, &c_rcv);
+  std::thread t(&posix_handler_t::main, &c_rcv, std::ref(stop));
 
   std::cout << "Etherform CLI CAN-PWM interface. Copyright 2026." << std::endl;
   std::cout << "Servo [0] or Motor [1]? Please remove props before motor before use." << std::endl;

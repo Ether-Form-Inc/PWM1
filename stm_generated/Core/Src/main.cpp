@@ -82,7 +82,8 @@ int main(void)
   HAL_Delay(1);
 
   // Receive and process can frames
-  can_to_pwm.main();
+  bool stop{false};
+  can_to_pwm.main(stop);
 
   // This should never be reached
   while (1)
