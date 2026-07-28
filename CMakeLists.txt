@@ -47,7 +47,7 @@ if(${ARCH} STREQUAL "STM")
   FetchContent_Populate(stm32_g0xx)
 
   add_subdirectory(stm_generated)
-else()
+elseif(${ARCH} STREQUAL "POSIX")
 
   FetchContent_Declare(
     libuavcan
@@ -62,6 +62,8 @@ else()
   project(can_to_pwm_firmware_test)
   add_subdirectory(messages)
   add_subdirectory(tests)
+else()
+  message(FATAL_ERROR "Specified architecture type not supported. Use \"-DARCH=<POSIX,STM>\".")
 endif()
 
 
