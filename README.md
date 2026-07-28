@@ -58,4 +58,4 @@ However, any such converter can be used (If not UART to CAN then a substitute in
 1. A command line application which commands servo or motor commands which the can\_to\_pwm board will receive and respond to.
 2. An application which will receive and decode uavcan messages. This can be used to verify the CLI application or receive board hearbeats.
 3. This applciation specifically tests the SW interface with HW out of the loop. It will verify that the UAVCAN code as written can be transmitted and received over the selected interface (usbcan in this instance)
-4. This is an interface indepdent SW test which will uses custom implemented echo message type to verify that the HW is alive.
+4. This test will uses custom implemented echo message type to verify that the HW is alive. It will further test components of the can\_to\_pwm board which can be verified without additional HW.
