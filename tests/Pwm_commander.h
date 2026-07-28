@@ -1,4 +1,5 @@
-#include <ICan_translator.h>
+#include <EFI_can_test.h>
+
 #include <uavcan/equipment/actuator/ArrayCommand.hpp>
 #include <uavcan/equipment/actuator/Command.hpp>
 #include <uavcan/equipment/esc/RawCommand.hpp>
@@ -7,12 +8,12 @@
 
 using namespace uavcan;
 
-template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_translator<CAN_IF, SYS_CLK>
+template <typename CAN_IF> class Pwm_commander : public EFI_can_test<CAN_IF>
 {
   typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
   typedef uavcan::equipment::esc::RawCommand motor_handler_type_t;
 
-  typedef ICan_translator<CAN_IF, SYS_CLK> Base;
+  typedef EFI_can_test<CAN_IF> Base;
 
   public:
   // Type containing all information needed to command a servo position
@@ -24,8 +25,8 @@ template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_t
   };
 
   Pwm_commander(bool is_servo, uint32_t hw_version, uint8_t node_id, std::string name = "CAN to PWM",
-                uint32_t sw_version = 0, uint8_t node_priority = 10)
-      : Base(name, sw_version, hw_version, node_id, node_priority)
+                uint32_t sw_version = 0, uint8_t node_priority = 10, uint8_t node_of_interest = 11)
+      : Base(hw_version, true, node_id, node_of_interest, name, sw_version, node_priority)
       , m_servo_broadcast(Base::m_ownship_node)
       , m_motor_broadcast(Base::m_ownship_node)
   {
@@ -35,6 +36,7 @@ template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_t
 
   void custom_broadcast() override
   {
+    Base::custom_broadcast();
   }
 
   void command_servo_pwm(Servo_def *p_servos, uint32_t num_servos)
@@ -71,6 +73,7 @@ template <typename CAN_IF, typename SYS_CLK> class Pwm_commander : public ICan_t
 
   void custom_initialization() override
   {
+    Base::custom_initialization();
     if (m_is_servo)
     {
       m_servo_broadcast.setTxTimeout(uavcan::MonotonicDuration::fromMSec(1000));

@@ -11,7 +11,8 @@ inline constexpr char tty0[] = "/dev/ttyUSB0";
 inline constexpr char tty1[] = "/dev/ttyUSB1";
 int main()
 {
-  typedef Pwm_commander<Usb_can_interface<tty0>, Posix_system_clock> Command_t;
+  std::cout << "Note that this test requires two usbcan interfaces connected to one another." << std::endl;
+  typedef Pwm_commander<Usb_can_interface<tty0>> Command_t;
   Command_t c_cmd{true, 1, 13};
 
   typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Posix_system_clock> posix_handler_t;
