@@ -5,7 +5,8 @@
 
 using namespace uavcan;
 
-template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
+template <typename CAN_IF, typename SYS_CLK>
+class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
 {
   static constexpr uint32_t NUM_PWM_OUTPUTS{4};
   static constexpr uint8_t PCA9685_ADDR{0x43};
@@ -16,7 +17,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   typedef Can_to_pwm_translator<CAN_IF, SYS_CLK> Base;
 
-  public:
+public:
   STM_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
 
@@ -109,7 +110,12 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   {
   }
 
-  private:
+  void delay(uint64_t delay_us) override
+  {
+    HAL_Delay(delay_us / 1000);
+  }
+
+private:
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];

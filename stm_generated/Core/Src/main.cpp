@@ -83,7 +83,7 @@ int main(void)
 
   // Receive and process can frames
   bool stop{false};
-  can_to_pwm.main(stop);
+  can_to_pwm.main(stop, 1);
 
   // This should never be reached
   while (1)

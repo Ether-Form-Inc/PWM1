@@ -1,17 +1,20 @@
 #include <Can_to_pwm_translator.h>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 using namespace uavcan;
 
-template <typename CAN_IF, typename SYS_CLK> class Posix_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
+template <typename CAN_IF, typename SYS_CLK>
+class Posix_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
 {
   typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
   typedef uavcan::equipment::esc::RawCommand motor_handler_type_t;
 
   typedef Can_to_pwm_translator<CAN_IF, SYS_CLK> Base;
 
-  public:
+public:
   Posix_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
   {
@@ -40,6 +43,11 @@ template <typename CAN_IF, typename SYS_CLK> class Posix_can_to_pwm : public Can
   {
   }
 
-  private:
+  void delay(uint64_t delay_us) override
+  {
+    std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
+  }
+
+private:
   int32_t pwm_val{-1};
 };

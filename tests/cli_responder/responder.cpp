@@ -19,6 +19,6 @@ int main()
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   bool stop{false};
 
-  c_rcv.main(stop);
+  c_rcv.main(stop, 10);
   return 0;
 }

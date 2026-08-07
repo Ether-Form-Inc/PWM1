@@ -5,17 +5,20 @@
 #include <uavcan/equipment/esc/RawCommand.hpp>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 using namespace uavcan;
 
-template <typename CAN_IF> class Pwm_commander : public EFI_can_test<CAN_IF>
+template <typename CAN_IF>
+class Pwm_commander : public EFI_can_test<CAN_IF>
 {
   typedef uavcan::equipment::actuator::ArrayCommand servo_handler_type_t;
   typedef uavcan::equipment::esc::RawCommand motor_handler_type_t;
 
   typedef EFI_can_test<CAN_IF> Base;
 
-  public:
+public:
   // Type containing all information needed to command a servo position
   struct Servo_def
   {
@@ -26,9 +29,7 @@ template <typename CAN_IF> class Pwm_commander : public EFI_can_test<CAN_IF>
 
   Pwm_commander(bool is_servo, uint32_t hw_version, uint8_t node_id, std::string name = "CAN to PWM",
                 uint32_t sw_version = 0, uint8_t node_priority = 10, uint8_t node_of_interest = 11)
-      : Base(hw_version, true, node_id, node_of_interest, name, sw_version, node_priority)
-      , m_servo_broadcast(Base::m_ownship_node)
-      , m_motor_broadcast(Base::m_ownship_node)
+      : Base(hw_version, true, node_id, node_of_interest, name, sw_version, node_priority), m_servo_broadcast(Base::m_ownship_node), m_motor_broadcast(Base::m_ownship_node)
   {
   }
 
@@ -85,8 +86,13 @@ template <typename CAN_IF> class Pwm_commander : public EFI_can_test<CAN_IF>
       m_motor_broadcast.setPriority(uavcan::TransferPriority::OneLowerThanHighest);
     }
   }
+  
+  void delay(uint64_t delay_us) override
+  {
+    std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
+  }
 
-  private:
+private:
   bool m_is_servo{true};
   uavcan::Publisher<servo_handler_type_t> m_servo_broadcast;
   uavcan::Publisher<motor_handler_type_t> m_motor_broadcast;
