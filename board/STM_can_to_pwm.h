@@ -474,6 +474,9 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void set_us_servo(uint8_t channel_x, uint16_t pulse_us)
   {
+    // Limit to this output's servo pulse width range (programmable, see the SERVO_MIN/MAX_US parameters)
+    pulse_us = pulse_us < m_servo_min_us[channel_x] ? m_servo_min_us[channel_x] : pulse_us;
+    pulse_us = pulse_us > m_servo_max_us[channel_x] ? m_servo_max_us[channel_x] : pulse_us;
     const uint16_t on{0};
     const uint16_t off{convert_pulse_to_count(pulse_us)};
     set_pwm(channel_x, on, off);

@@ -31,12 +31,12 @@ The pulse width limits that scale the commands are programmable over CAN, as par
 
 | Parameter | Used by |
 |-----------|---------|
-| `SERVO_MIN_US_0` to `_3` | UNITLESS servo commands: -1 maps to this pulse width on output 0 to 3 |
-| `SERVO_MAX_US_0` to `_3` | UNITLESS servo commands: +1 maps to this pulse width |
+| `SERVO_MIN_US_0` to `_3` | Servo commands: UNITLESS -1 maps to this pulse width on output 0 to 3, and PWM commands are limited to at least this |
+| `SERVO_MAX_US_0` to `_3` | Servo commands: UNITLESS +1 maps to this pulse width, and PWM commands are limited to at most this |
 | `MOTOR_MIN_US_0` to `_3` | RawCommand 0 |
 | `MOTOR_MAX_US_0` to `_3` | RawCommand full scale (8192) |
 
-Values must be 1 to 20000 (one 50 Hz period). A change that would leave an output with a maximum that is not above its minimum is ignored, so when moving a range up, set the maximum first. PWM-type servo commands (command_type PWM) are used as given and are not limited by these parameters.
+Values must be 1 to 20000 (one 50 Hz period). A change that would leave an output with a maximum that is not above its minimum is ignored, so when moving a range up, set the maximum first. PWM-type servo commands (command_type PWM) are limited to the same servo range, so a pulse width outside it is clamped to the minimum or maximum.
 
 The DroneCAN GUI tool can edit them, or use `tools/can_pwm_param.py` (needs `pip install dronecan pyserial` and a serial USB-CAN adapter):
 
