@@ -334,8 +334,9 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // uint16_t positive_cmd = static_cast<uint16_t>(cmd + (int16_t)(1 << 13));
     // float val_thresh = static_cast<float>(positive_cmd) / static_cast<float>(motor_range);
 
-    // This is because 0 corresponds to 0 (negative range should be ignored)
-    float val_thresh = static_cast<float>(std::abs(cmd)) / 8192.f;
+    // Negative commands are not supported (there is no meaningful PWM for them), so they are treated as 0
+    cmd = cmd < 0 ? 0 : cmd;
+    float val_thresh = static_cast<float>(cmd) / 8192.f;
     val_thresh = val_thresh > 1.f ? 1.f : val_thresh;
 
     uint16_t mapped_pwm_offset_from_min =
