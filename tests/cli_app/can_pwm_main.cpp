@@ -1,5 +1,6 @@
 #include <Pwm_commander.h>
 #include <usb_interface/Usb_can_interface.h>
+#include <user_defined_threshold.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -53,7 +54,7 @@ int main()
 
         std::cout << "Enter value between 0 and 2000 to command servo " << servo.actuator_id << std::endl;
         std::cin >> servo.pwm_val;
-        if (servo.pwm_val > 2000)
+        if (servo.pwm_val > maximum_servo_us_4)
         {
           std::cout << "Invalid value, ignoring value." << std::endl;
         }

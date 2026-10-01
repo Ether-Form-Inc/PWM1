@@ -33,3 +33,6 @@ static constexpr uint16_t minimum_motor_us[4] = {minimum_motor_us_1, minimum_mot
 
 static constexpr uint16_t maximum_motor_us[4] = {maximum_motor_us_1, maximum_motor_us_2, maximum_motor_us_3,
                                                  maximum_motor_us_4};
+
+// TODO: We need to define user def min max receive -- now set to 0 to 8192
+// TODO: This should be re-integrated to be the source of truth for STM_PWM

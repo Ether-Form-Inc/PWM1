@@ -7,7 +7,8 @@
 #include <iostream>
 #include <thread>
 
-inline constexpr char tty1[] = "/dev/ttyUSB1";
+// inline constexpr char tty1[] = "/dev/ttyUSB1";
+inline constexpr char tty1[] = "/dev/ttyUSB0";
 int main()
 {
   typedef Posix_can_to_pwm<Usb_can_interface<tty1>, Posix_system_clock> posix_handler_t;

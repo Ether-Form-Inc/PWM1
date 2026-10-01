@@ -5,8 +5,7 @@
 
 using namespace uavcan;
 
-template <typename CAN_IF, typename SYS_CLK>
-class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
+template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
 {
   static constexpr uint32_t NUM_PWM_OUTPUTS{4};
   static constexpr uint8_t PCA9685_ADDR{0x43};
@@ -17,7 +16,7 @@ class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
 
   typedef Can_to_pwm_translator<CAN_IF, SYS_CLK> Base;
 
-public:
+  public:
   STM_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
 
@@ -115,7 +114,7 @@ public:
     HAL_Delay(delay_us / 1000);
   }
 
-private:
+  private:
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];
@@ -180,12 +179,16 @@ private:
   void set_motor(uint8_t channel_x, int16_t cmd)
   {
     // We need to map an int14 to the pwm range
-    constexpr int16_t maximum_motor_cmd{(1 << 13) - 1};
-    constexpr int16_t minimum_motor_cmd{-(1 << 13)};
-    constexpr uint16_t motor_range{(uint16_t)(maximum_motor_cmd - minimum_motor_cmd)};
+    // constexpr int16_t maximum_motor_cmd{(1 << 13) - 1};
+    // constexpr int16_t minimum_motor_cmd{0}; //-(1 << 13)};
+    // constexpr uint16_t motor_range{(uint16_t)(maximum_motor_cmd - minimum_motor_cmd)};
 
-    uint16_t positive_cmd = static_cast<uint16_t>(cmd + (int16_t)(2 << 12));
-    float val_thresh = static_cast<float>(positive_cmd) / static_cast<float>(motor_range);
+    // uint16_t positive_cmd = static_cast<uint16_t>(cmd + (int16_t)(1 << 13));
+    // float val_thresh = static_cast<float>(positive_cmd) / static_cast<float>(motor_range);
+
+    // This is because 0 corresponds to 0 (negative range should be ignored)
+    float val_thresh = static_cast<float>(std::abs(cmd)) / 8192.f;
+
     uint16_t mapped_pwm_offset_from_min =
         static_cast<uint16_t>(val_thresh * static_cast<float>(m_motor_range_us[channel_x]));
 
