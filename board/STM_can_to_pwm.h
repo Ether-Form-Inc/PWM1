@@ -7,6 +7,8 @@
 #include <uavcan/protocol/param_server.hpp>
 #include <uavcan/protocol/restart_request_server.hpp>
 
+#include <cstring>
+
 using namespace uavcan;
 
 template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_to_pwm_translator<CAN_IF, SYS_CLK>
@@ -49,16 +51,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // Initialize PCA
     m_initialized &= PCA9685_Init();
 
-    // Compute range of servo/motor us for unitless conversion
-    for (uint32_t c = 0; c < 4; c++)
-    {
-      m_servo_range_us[c] = maximum_servo_us[c] - minimum_servo_us[c];
-    }
-
-    for (uint32_t c = 0; c < 4; c++)
-    {
-      m_motor_range_us[c] = maximum_motor_us[c] - minimum_motor_us[c];
-    }
+    // Pulse width limits: the defaults, overridden by any values stored in flash
+    load_ranges();
   }
 
   // The HW pins will determine actuator id offset. But it is assumed that ch 0-3 have ids = offset + (0-3)
@@ -160,9 +154,15 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   static constexpr uint32_t motor_timeout_ms{5000};
   static constexpr int64_t node_id_param_max{127};
 
+  // Parameter 0 is NODE_ID. Parameters 1 to 16 are the PWM pulse width limits in us, applied immediately:
+  // SERVO_MIN_US_0..3, SERVO_MAX_US_0..3, MOTOR_MIN_US_0..3, MOTOR_MAX_US_0..3. Writing 0 to any of them goes back to
+  // its default.
   class Param_manager : public uavcan::IParamManager
   {
     static constexpr const char *node_id_name{"NODE_ID"};
+    static constexpr uint32_t param_count{1 + Stm_settings::pwm_range_count};
+
+    STM_can_to_pwm &m_owner;
 
     static int64_t stored_node_id()
     {
@@ -170,19 +170,68 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
       return Stm_settings::read(Stm_settings::node_id, v) ? v : 0;
     }
 
-    void getParamNameByIndex(Index index, Name &out_name) const override
+    // Writes the name of parameter `index` into buf (at least 16 bytes)
+    static bool param_name(uint32_t index, char *buf)
     {
+      static const char *const prefixes[4] = {"SERVO_MIN_US_", "SERVO_MAX_US_", "MOTOR_MIN_US_", "MOTOR_MAX_US_"};
       if (index == 0)
       {
-        out_name = node_id_name;
+        strcpy(buf, node_id_name);
+        return true;
+      }
+      if (index >= param_count)
+      {
+        return false;
+      }
+      const uint32_t i = index - 1;
+      strcpy(buf, prefixes[i / 4]);
+      const size_t n = strlen(buf);
+      buf[n] = (char)('0' + i % 4);
+      buf[n + 1] = 0;
+      return true;
+    }
+
+    // Parameter index for a name, or -1
+    static int find(const Name &name)
+    {
+      char buf[16];
+      for (uint32_t i = 0; i < param_count; i++)
+      {
+        if (param_name(i, buf) && name == buf)
+        {
+          return (int)i;
+        }
+      }
+      return -1;
+    }
+
+    public:
+    explicit Param_manager(STM_can_to_pwm &owner)
+        : m_owner(owner)
+    {
+    }
+
+    private:
+    void getParamNameByIndex(Index index, Name &out_name) const override
+    {
+      char buf[16];
+      if (param_name(index, buf))
+      {
+        out_name = buf;
       }
     }
 
     void assignParamValue(const Name &name, const Value &value) override
     {
-      if (name == node_id_name && value.is(Value::Tag::integer_value))
+      const int idx = find(name);
+      if (idx < 0 || !value.is(Value::Tag::integer_value))
       {
-        const int64_t wanted = *value.as<Value::Tag::integer_value>();
+        return;
+      }
+      const int64_t wanted = *value.as<Value::Tag::integer_value>();
+
+      if (idx == 0)
+      {
         // An out of range value is ignored; the response shows what is actually stored
         if (wanted >= 0 && wanted <= node_id_param_max && wanted != stored_node_id())
         {
@@ -195,38 +244,64 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
             Stm_settings::write(Stm_settings::node_id, (uint8_t)wanted);
           }
         }
+        return;
+      }
+
+      const uint32_t i = idx - 1;
+      if (wanted < 0 || wanted > pwm_range_param_max)
+      {
+        return;
+      }
+      uint16_t candidate[Stm_settings::pwm_range_count];
+      memcpy(candidate, m_owner.m_stored_ranges, sizeof(candidate));
+      candidate[i] = wanted == 0 ? 0xFFFF : (uint16_t)wanted;
+      // A change that would leave an output with maximum <= minimum is ignored
+      if (candidate[i] != m_owner.m_stored_ranges[i] && m_owner.ranges_valid(candidate) &&
+          Stm_settings::write_pwm_ranges(candidate))
+      {
+        memcpy(m_owner.m_stored_ranges, candidate, sizeof(candidate));
+        m_owner.apply_ranges();
       }
     }
 
     void readParamValue(const Name &name, Value &out_value) const override
     {
-      if (name == node_id_name)
+      const int idx = find(name);
+      if (idx == 0)
       {
         out_value.to<Value::Tag::integer_value>() = stored_node_id();
+      }
+      else if (idx > 0)
+      {
+        out_value.to<Value::Tag::integer_value>() = m_owner.effective_range(idx - 1, m_owner.m_stored_ranges);
       }
     }
 
     void readParamDefaultMaxMin(const Name &name, Value &out_default, NumericValue &out_max,
                                 NumericValue &out_min) const override
     {
-      if (name == node_id_name)
+      const int idx = find(name);
+      if (idx < 0)
       {
-        out_default.to<Value::Tag::integer_value>() = 0;
-        out_max.to<NumericValue::Tag::integer_value>() = node_id_param_max;
-        out_min.to<NumericValue::Tag::integer_value>() = 0;
+        return;
       }
+      out_default.to<Value::Tag::integer_value>() = idx == 0 ? 0 : default_range(idx - 1);
+      out_max.to<NumericValue::Tag::integer_value>() = idx == 0 ? node_id_param_max : pwm_range_param_max;
+      out_min.to<NumericValue::Tag::integer_value>() = 0;
     }
 
-    // GetSet already stores the value in flash
+    // GetSet already stores the values in flash
     int saveAllParams() override
     {
       return 0;
     }
 
-    // Back to the default node ID
+    // Back to the default node ID and PWM limits
     int eraseAllParams() override
     {
-      return Stm_settings::erase(Stm_settings::node_id) ? 0 : -1;
+      const bool ok = Stm_settings::erase(Stm_settings::node_id) && Stm_settings::erase(Stm_settings::pwm_ranges);
+      m_owner.load_ranges();
+      return ok ? 0 : -1;
     }
   };
 
@@ -247,15 +322,95 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   uint32_t m_last_motor_msg_ms{0};
   bool m_motor_outputs_active{false};
 
-  Param_manager m_param_manager;
+  Param_manager m_param_manager{*this};
   Restart_handler m_restart_handler;
   uavcan::ParamServer m_param_server;
   uavcan::RestartRequestServer m_restart_server;
 
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
+  // Pulse width limits in use (us) and their spans, per output
+  uint16_t m_servo_min_us[NUM_PWM_OUTPUTS];
+  uint16_t m_servo_max_us[NUM_PWM_OUTPUTS];
+  uint16_t m_motor_min_us[NUM_PWM_OUTPUTS];
+  uint16_t m_motor_max_us[NUM_PWM_OUTPUTS];
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];
   uint16_t m_motor_range_us[NUM_PWM_OUTPUTS];
+  // Values stored in flash, 0xFFFF = not set. Same order as Stm_settings::read_pwm_ranges()
+  uint16_t m_stored_ranges[Stm_settings::pwm_range_count];
+
+  static constexpr int64_t pwm_range_param_max{20000}; // one 50 Hz period
+
+  // Defaults for the range parameter with this flat index (0 to 15): group (servo min, servo max, motor min, motor
+  // max) times 4 plus output
+  static uint16_t default_range(uint32_t i)
+  {
+    static const uint16_t *const tables[4] = {minimum_servo_us, maximum_servo_us, minimum_motor_us, maximum_motor_us};
+    return tables[i / 4][i % 4];
+  }
+
+  uint16_t *range_slot(uint32_t i)
+  {
+    uint16_t *const tables[4] = {m_servo_min_us, m_servo_max_us, m_motor_min_us, m_motor_max_us};
+    return &tables[i / 4][i % 4];
+  }
+
+  // The value in use for range parameter i: the stored one, or the default
+  uint16_t effective_range(uint32_t i, const uint16_t *stored) const
+  {
+    return stored[i] != 0xFFFF ? stored[i] : default_range(i);
+  }
+
+  // True if every output would have a maximum greater than its minimum with these stored values
+  bool ranges_valid(const uint16_t *stored) const
+  {
+    // Servo limits start at index 0 and motor limits at index 8; the maxima are 4 after the minima
+    for (uint32_t base = 0; base < Stm_settings::pwm_range_count; base += 8)
+    {
+      for (uint32_t c = 0; c < NUM_PWM_OUTPUTS; c++)
+      {
+        if (effective_range(base + 4 + c, stored) <= effective_range(base + c, stored))
+        {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void load_ranges()
+  {
+    Stm_settings::read_pwm_ranges(m_stored_ranges);
+    for (uint32_t i = 0; i < Stm_settings::pwm_range_count; i++)
+    {
+      // Ignore anything out of range (the page is erased, 0xFFFF, when nothing has been stored)
+      if (m_stored_ranges[i] == 0 || (m_stored_ranges[i] != 0xFFFF && m_stored_ranges[i] > pwm_range_param_max))
+      {
+        m_stored_ranges[i] = 0xFFFF;
+      }
+    }
+    if (!ranges_valid(m_stored_ranges))
+    {
+      for (auto &v : m_stored_ranges)
+      {
+        v = 0xFFFF;
+      }
+    }
+    apply_ranges();
+  }
+
+  void apply_ranges()
+  {
+    for (uint32_t i = 0; i < Stm_settings::pwm_range_count; i++)
+    {
+      *range_slot(i) = effective_range(i, m_stored_ranges);
+    }
+    for (uint32_t c = 0; c < NUM_PWM_OUTPUTS; c++)
+    {
+      m_servo_range_us[c] = m_servo_max_us[c] - m_servo_min_us[c];
+      m_motor_range_us[c] = m_motor_max_us[c] - m_motor_min_us[c];
+    }
+  }
 
   bool PCA9685_Init(void)
   {
@@ -313,7 +468,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // Clamp so out-of-range commands cannot produce out-of-range pulse widths
     unitless = unitless < -1.f ? -1.f : (unitless > 1.f ? 1.f : unitless);
     uint16_t pulse_us =
-        static_cast<uint16_t>(((unitless + 1.f) / 2.f) * m_servo_range_us[channel_x]) + minimum_servo_us[channel_x];
+        static_cast<uint16_t>(((unitless + 1.f) / 2.f) * m_servo_range_us[channel_x]) + m_servo_min_us[channel_x];
     set_us_servo(channel_x, pulse_us);
   }
 
@@ -342,7 +497,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     uint16_t mapped_pwm_offset_from_min =
         static_cast<uint16_t>(val_thresh * static_cast<float>(m_motor_range_us[channel_x]));
 
-    uint16_t pwm_pulse_us = mapped_pwm_offset_from_min + minimum_motor_us[channel_x];
+    uint16_t pwm_pulse_us = mapped_pwm_offset_from_min + m_motor_min_us[channel_x];
 
     const uint16_t on{0};
     const uint16_t off{convert_pulse_to_count(pwm_pulse_us)};

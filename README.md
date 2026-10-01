@@ -26,12 +26,33 @@ RawCommand values from 0 to 8191 map linearly to a 1000 to 2000 us pulse. Negati
 ## Motor mode timeout
 In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 seconds all four PWM signals are switched off (held low, as after power-up). They resume with the next RawCommand. Servo mode has no timeout: each output keeps its last commanded pulse width.
 
+## Pulse width limits
+The pulse width limits that scale the commands are programmable over CAN, as parameters (type `uavcan.protocol.param.GetSet`, integer, microseconds). They are stored in flash, applied immediately and kept across restarts. Writing 0 to a parameter (or erasing, or an unwritten page) goes back to the default, which is the constant in `board/user_defined_threshold.h` (1000 us minimum, 2000 us maximum).
+
+| Parameter | Used by |
+|-----------|---------|
+| `SERVO_MIN_US_0` to `_3` | UNITLESS servo commands: -1 maps to this pulse width on output 0 to 3 |
+| `SERVO_MAX_US_0` to `_3` | UNITLESS servo commands: +1 maps to this pulse width |
+| `MOTOR_MIN_US_0` to `_3` | RawCommand 0 |
+| `MOTOR_MAX_US_0` to `_3` | RawCommand full scale (8192) |
+
+Values must be 1 to 20000 (one 50 Hz period). A change that would leave an output with a maximum that is not above its minimum is ignored, so when moving a range up, set the maximum first. PWM-type servo commands (command_type PWM) are used as given and are not limited by these parameters.
+
+The DroneCAN GUI tool can edit them, or use `tools/can_pwm_param.py` (needs `pip install dronecan pyserial` and a serial USB-CAN adapter):
+
+```bash
+tools/can_pwm_param.py 10 list                       # every parameter of node 10
+tools/can_pwm_param.py 10 set-range motor 0 1100 1900 # both limits of motor output 0
+tools/can_pwm_param.py 10 set SERVO_MAX_US_2 1800
+tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID)
+```
+
 ## Node ID
 J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can be changed over CAN with the standard DroneCAN parameter services (for example from the DroneCAN GUI tool):
 
 * Write the integer parameter `NODE_ID` (1 to 127) with `uavcan.protocol.param.GetSet`. The value is stored in the last flash pages (61 to 63 are reserved by the linker script) and is used after the node restarts. Values outside 0 to 127 are ignored.
 * Restart the node with `uavcan.protocol.RestartNode` (or power-cycle it) to apply the new ID.
-* Writing 0, or sending `uavcan.protocol.param.ExecuteOpcode` with the erase opcode, removes the stored ID so the default of 10 is used again.
+* Writing 0 removes the stored ID so the default of 10 is used again. `uavcan.protocol.param.ExecuteOpcode` with the erase opcode removes the stored ID and the stored pulse width limits.
 
 Writing flash stops the processor for a few tens of milliseconds, so do not change the ID while the actuators are in use.
 

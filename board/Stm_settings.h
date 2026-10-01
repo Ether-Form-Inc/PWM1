@@ -18,6 +18,7 @@ struct Setting
 };
 
 constexpr Setting node_id{62, 0x0801F000};     // node ID override, 1 to 127
+constexpr Setting pwm_ranges{61, 0x0801E800};  // PWM pulse width limits, see pwm_range_count
 
 // Reads a one byte setting. Returns false if it was never written (or holds 0xFF).
 inline bool read(const Setting &s, uint8_t &value)
@@ -59,5 +60,50 @@ inline bool write(const Setting &s, uint8_t value)
 
   uint8_t check;
   return ok && read(s, check) && check == value;
+}
+
+// The PWM pulse width limits (us) share one page: 16 halfwords, 0xFFFF = not set (use the default). The order is
+// servo min, servo max, motor min and motor max, each for outputs 0 to 3.
+constexpr uint32_t pwm_range_count = 16;
+
+inline void read_pwm_ranges(uint16_t (&values)[pwm_range_count])
+{
+  for (uint32_t i = 0; i < pwm_range_count; i++)
+  {
+    values[i] = *(const volatile uint16_t *)(pwm_ranges.address + 2 * i);
+  }
+}
+
+// Rewrites the whole page. The CPU is stalled while flash is erased, a few tens of milliseconds. Returns true if
+// the values read back correctly.
+inline bool write_pwm_ranges(const uint16_t (&values)[pwm_range_count])
+{
+  if (!erase(pwm_ranges))
+  {
+    return false;
+  }
+  HAL_FLASH_Unlock();
+  bool ok = true;
+  for (uint32_t d = 0; d < pwm_range_count / 4 && ok; d++)
+  {
+    uint64_t word = 0;
+    for (uint32_t k = 0; k < 4; k++)
+    {
+      word |= (uint64_t)values[d * 4 + k] << (16 * k);
+    }
+    if (word != 0xFFFFFFFFFFFFFFFFULL)
+    {
+      ok = HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pwm_ranges.address + 8 * d, word) == HAL_OK;
+    }
+  }
+  HAL_FLASH_Lock();
+
+  uint16_t check[pwm_range_count];
+  read_pwm_ranges(check);
+  for (uint32_t i = 0; i < pwm_range_count; i++)
+  {
+    ok = ok && check[i] == values[i];
+  }
+  return ok;
 }
 } // namespace Stm_settings
