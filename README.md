@@ -20,6 +20,9 @@ J5 is a 2x4 header (1.27 mm pitch). Each of its four rows has a signal pin (odd 
 The three offset bits give an offset of 0 to 7. PWM output 0 (J4 pin 8) answers actuator id = offset, output 1 (pin 6) offset + 1, output 2 (pin 4) offset + 2 and output 3 (pin 2) offset + 3. The highest actuator id reachable with the jumpers is therefore 10, so to use more than 11 actuators a SW offset must be set (See Building and Flashing).
 
 
+## Motor mode timeout
+In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 seconds all four PWM signals are switched off (held low, as after power-up). They resume with the next RawCommand. Servo mode has no timeout: each output keeps its last commanded pulse width.
+
 ## Node ID
 J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can be changed over CAN with the standard DroneCAN parameter services (for example from the DroneCAN GUI tool):
 

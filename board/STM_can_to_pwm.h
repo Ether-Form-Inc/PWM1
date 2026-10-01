@@ -23,6 +23,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   public:
   STM_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
+      , m_is_servo(is_servo)
       , m_param_server(Base::m_ownship_node)
       , m_restart_server(Base::m_ownship_node)
   {
@@ -92,6 +93,10 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void handle_motor_set(const ReceivedDataStructure<motor_handler_type_t> &data) override
   {
+    // Any RawCommand message restarts the motor timeout
+    m_last_motor_msg_ms = HAL_GetTick();
+    m_motor_outputs_active = true;
+
     const uint32_t num_commands = data.cmd.size();
 
     // Stop at the minimum of maximum internal id or size of data
@@ -132,6 +137,17 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     {
       NVIC_SystemReset();
     }
+
+    // Motor mode only: switch the PWM signals off if no RawCommand has arrived for motor_timeout_ms. They come back
+    // with the next RawCommand. Servo outputs hold their last value.
+    if (!m_is_servo && m_motor_outputs_active && (HAL_GetTick() - m_last_motor_msg_ms) >= motor_timeout_ms)
+    {
+      for (uint8_t c = 0; c < NUM_PWM_OUTPUTS; c++)
+      {
+        set_pwm_off(c);
+      }
+      m_motor_outputs_active = false;
+    }
   }
 
   void delay(uint64_t delay_us) override
@@ -141,6 +157,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   private:
   static constexpr uint32_t restart_delay_ms{500};
+  static constexpr uint32_t motor_timeout_ms{5000};
   static constexpr int64_t node_id_param_max{127};
 
   class Param_manager : public uavcan::IParamManager
@@ -226,6 +243,10 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     }
   };
 
+  const bool m_is_servo;
+  uint32_t m_last_motor_msg_ms{0};
+  bool m_motor_outputs_active{false};
+
   Param_manager m_param_manager;
   Restart_handler m_restart_handler;
   uavcan::ParamServer m_param_server;
@@ -276,6 +297,15 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     static constexpr uint8_t ch0_addr{0x06};
     const uint8_t ch_x_addr{(uint8_t)(ch0_addr + channel_x * 4)};
     HAL_I2C_Mem_Write(&hi2c2, PCA9685_ADDR << 1, ch_x_addr, I2C_MEMADD_SIZE_8BIT, pwm_val, 4, 1000);
+  }
+
+  // Holds the output low (PCA9685 "full off" bit), as it is after power-up
+  void set_pwm_off(uint8_t channel_x)
+  {
+    uint8_t pwm_val[4] = {0, 0, 0, 0x10};
+    static constexpr uint8_t ch0_addr{0x06};
+    HAL_I2C_Mem_Write(&hi2c2, PCA9685_ADDR << 1, (uint8_t)(ch0_addr + channel_x * 4), I2C_MEMADD_SIZE_8BIT, pwm_val, 4,
+                      1000);
   }
 
   void set_unitless_servo(uint8_t channel_x, float unitless)
