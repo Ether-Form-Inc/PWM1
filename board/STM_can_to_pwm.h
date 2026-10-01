@@ -1,7 +1,11 @@
 #pragma once
 
 #include <Can_to_pwm_translator.h>
+#include <Stm_settings.h>
 #include <user_defined_threshold.h>
+
+#include <uavcan/protocol/param_server.hpp>
+#include <uavcan/protocol/restart_request_server.hpp>
 
 using namespace uavcan;
 
@@ -19,7 +23,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   public:
   STM_can_to_pwm(uint32_t actuator_id, bool is_servo, uint8_t node_id)
       : Base(actuator_id, is_servo, 0, node_id)
-
+      , m_param_server(Base::m_ownship_node)
+      , m_restart_server(Base::m_ownship_node)
   {
     // Initialize hi2c2 constants
     hi2c2.Instance = I2C2;
@@ -109,12 +114,123 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   {
   }
 
+  // Standard DroneCAN configuration services so the node ID can be set over CAN (for example from the DroneCAN GUI
+  // tool): write the integer parameter NODE_ID (1 to 127) with uavcan.protocol.param.GetSet. It is stored in flash and
+  // used from the next start; 0 erases it so the default node ID is used again.
+  void custom_initialization() override
+  {
+    Base::custom_initialization();
+    m_param_server.start(&m_param_manager);
+    m_restart_server.setHandler(&m_restart_handler);
+    m_restart_server.start();
+  }
+
+  void custom_broadcast() override
+  {
+    // Reset once the RestartNode response has had time to be sent
+    if (m_restart_handler.requested && (HAL_GetTick() - m_restart_handler.requested_ms) >= restart_delay_ms)
+    {
+      NVIC_SystemReset();
+    }
+  }
+
   void delay(uint64_t delay_us) override
   {
     HAL_Delay(delay_us / 1000);
   }
 
   private:
+  static constexpr uint32_t restart_delay_ms{500};
+  static constexpr int64_t node_id_param_max{127};
+
+  class Param_manager : public uavcan::IParamManager
+  {
+    static constexpr const char *node_id_name{"NODE_ID"};
+
+    static int64_t stored_node_id()
+    {
+      uint8_t v;
+      return Stm_settings::read(Stm_settings::node_id, v) ? v : 0;
+    }
+
+    void getParamNameByIndex(Index index, Name &out_name) const override
+    {
+      if (index == 0)
+      {
+        out_name = node_id_name;
+      }
+    }
+
+    void assignParamValue(const Name &name, const Value &value) override
+    {
+      if (name == node_id_name && value.is(Value::Tag::integer_value))
+      {
+        const int64_t wanted = *value.as<Value::Tag::integer_value>();
+        // An out of range value is ignored; the response shows what is actually stored
+        if (wanted >= 0 && wanted <= node_id_param_max && wanted != stored_node_id())
+        {
+          if (wanted == 0)
+          {
+            Stm_settings::erase(Stm_settings::node_id);
+          }
+          else
+          {
+            Stm_settings::write(Stm_settings::node_id, (uint8_t)wanted);
+          }
+        }
+      }
+    }
+
+    void readParamValue(const Name &name, Value &out_value) const override
+    {
+      if (name == node_id_name)
+      {
+        out_value.to<Value::Tag::integer_value>() = stored_node_id();
+      }
+    }
+
+    void readParamDefaultMaxMin(const Name &name, Value &out_default, NumericValue &out_max,
+                                NumericValue &out_min) const override
+    {
+      if (name == node_id_name)
+      {
+        out_default.to<Value::Tag::integer_value>() = 0;
+        out_max.to<NumericValue::Tag::integer_value>() = node_id_param_max;
+        out_min.to<NumericValue::Tag::integer_value>() = 0;
+      }
+    }
+
+    // GetSet already stores the value in flash
+    int saveAllParams() override
+    {
+      return 0;
+    }
+
+    // Back to the default node ID
+    int eraseAllParams() override
+    {
+      return Stm_settings::erase(Stm_settings::node_id) ? 0 : -1;
+    }
+  };
+
+  struct Restart_handler : public uavcan::IRestartRequestHandler
+  {
+    bool requested{false};
+    uint32_t requested_ms{0};
+
+    bool handleRestartRequest(uavcan::NodeID) override
+    {
+      requested = true;
+      requested_ms = HAL_GetTick();
+      return true;
+    }
+  };
+
+  Param_manager m_param_manager;
+  Restart_handler m_restart_handler;
+  uavcan::ParamServer m_param_server;
+  uavcan::RestartRequestServer m_restart_server;
+
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];

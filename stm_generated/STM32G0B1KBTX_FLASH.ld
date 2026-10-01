@@ -45,6 +45,8 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 144K
+  /* The last 3 pages (61 to 63, from 0x0801E800) hold the stored node ID, so the application must not use them.
+     The part has 128K. */
   FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 122K
 }
 

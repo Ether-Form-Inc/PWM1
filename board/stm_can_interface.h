@@ -24,7 +24,7 @@ class Stm_can_iface : public ICanIface
     hfdcan1.Init.ClockDivider = FDCAN_CLOCK_DIV1;
     hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
     hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
-    hfdcan1.Init.AutoRetransmission = DISABLE;
+    hfdcan1.Init.AutoRetransmission = ENABLE; // a frame lost to arbitration must be retried
     hfdcan1.Init.TransmitPause = DISABLE;
     hfdcan1.Init.ProtocolException = DISABLE;
     hfdcan1.Init.NominalPrescaler = 4;
@@ -79,13 +79,20 @@ class Stm_can_iface : public ICanIface
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
+    // libuavcan treats 0 as "no room, try again later" and a negative value as a failure that drops the frame. A
+    // multi-frame transfer (e.g. a parameter response) is bigger than the 3 element Tx FIFO, so wait for space.
+    if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) == 0)
+    {
+      return 0;
+    }
+
     tx_header.Identifier = frame.id;
     tx_header.DataLength = CanFrame::dlcToDataLength(frame.dlc);
     if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, frame.data) != HAL_OK)
     {
       return -1;
     }
-    return tx_header.DataLength;
+    return 1;
   }
 
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,

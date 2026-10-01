@@ -20,6 +20,15 @@ J5 is a 2x4 header (1.27 mm pitch). Each of its four rows has a signal pin (odd 
 The three offset bits give an offset of 0 to 7. PWM output 0 (J4 pin 8) answers actuator id = offset, output 1 (pin 6) offset + 1, output 2 (pin 4) offset + 2 and output 3 (pin 2) offset + 3. The highest actuator id reachable with the jumpers is therefore 10, so to use more than 11 actuators a SW offset must be set (See Building and Flashing).
 
 
+## Node ID
+J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can be changed over CAN with the standard DroneCAN parameter services (for example from the DroneCAN GUI tool):
+
+* Write the integer parameter `NODE_ID` (1 to 127) with `uavcan.protocol.param.GetSet`. The value is stored in the last flash pages (61 to 63 are reserved by the linker script) and is used after the node restarts. Values outside 0 to 127 are ignored.
+* Restart the node with `uavcan.protocol.RestartNode` (or power-cycle it) to apply the new ID.
+* Writing 0, or sending `uavcan.protocol.param.ExecuteOpcode` with the erase opcode, removes the stored ID so the default of 10 is used again.
+
+Writing flash stops the processor for a few tens of milliseconds, so do not change the ID while the actuators are in use.
+
 # Building and Flashing
 The software can be built for two different architectures, STM32 and POSIX. The POSIX build can be used to verify, experiment, and test the software/hardware, whereas the STM32 architecture will load onto EFI's HW for CAN based actuation.
 
