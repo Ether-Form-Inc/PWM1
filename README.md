@@ -26,7 +26,9 @@ RawCommand values from 0 to 8191 map linearly to a 1000 to 2000 us pulse. Negati
 ## Motor mode timeout
 In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 seconds all four PWM signals are switched off (held low, as after power-up). They resume with the next RawCommand. Servo mode has no timeout: each output keeps its last commanded pulse width.
 
-## Pulse width limits
+The timeout is programmable with the `MOTOR_TIMEOUT_MS` parameter (100 to 60000 ms, stored in flash, applied immediately). Writing 0 restores the default, `default_motor_timeout_ms` in `board/user_defined_threshold.h` (5000 ms).
+
+## Pulse width limits and motor timeout
 The pulse width limits that scale the commands are programmable over CAN, as parameters (type `uavcan.protocol.param.GetSet`, integer, microseconds). They are stored in flash, applied immediately and kept across restarts. Writing 0 to a parameter (or erasing, or an unwritten page) goes back to the default, which is the constant in `board/user_defined_threshold.h` (1000 us minimum, 2000 us maximum).
 
 | Parameter | Used by |
@@ -44,7 +46,8 @@ The DroneCAN GUI tool can edit them, or use `tools/can_pwm_param.py` (needs `pip
 tools/can_pwm_param.py 10 list                       # every parameter of node 10
 tools/can_pwm_param.py 10 set-range motor 0 1100 1900 # both limits of motor output 0
 tools/can_pwm_param.py 10 set SERVO_MAX_US_2 1800
-tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID)
+tools/can_pwm_param.py 10 set MOTOR_TIMEOUT_MS 2000   # motor mode timeout, ms
+tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID and the motor timeout)
 ```
 
 ## Node ID

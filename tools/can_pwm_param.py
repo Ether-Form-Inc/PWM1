@@ -14,7 +14,8 @@ Usage: can_pwm_param.py [-d /dev/ttyUSB0] NODE_ID command [name] [value]
   restart              restart the node (applies a new NODE_ID)
 
 Parameters: NODE_ID (1-127, 0 = default 10), and the pulse width limits in us (1-20000, 0 = default)
-SERVO_MIN_US_0..3, SERVO_MAX_US_0..3, MOTOR_MIN_US_0..3, MOTOR_MAX_US_0..3.
+SERVO_MIN_US_0..3, SERVO_MAX_US_0..3, MOTOR_MIN_US_0..3, MOTOR_MAX_US_0..3, and MOTOR_TIMEOUT_MS (100-60000 ms,
+0 = default 5000).
 """
 import argparse
 import sys

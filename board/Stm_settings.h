@@ -62,9 +62,11 @@ inline bool write(const Setting &s, uint8_t value)
   return ok && read(s, check) && check == value;
 }
 
-// The PWM pulse width limits (us) share one page: 16 halfwords, 0xFFFF = not set (use the default). The order is
-// servo min, servo max, motor min and motor max, each for outputs 0 to 3.
-constexpr uint32_t pwm_range_count = 16;
+// The PWM settings share one page of halfwords, 0xFFFF = not set (use the default). The first 16 are the pulse width
+// limits in us in the order servo min, servo max, motor min and motor max, each for outputs 0 to 3. The 17th is the
+// motor mode command timeout in ms. The count is a multiple of 4 because flash is written in 8 byte units.
+constexpr uint32_t pwm_limit_count = 16;
+constexpr uint32_t pwm_range_count = 20;
 
 inline void read_pwm_ranges(uint16_t (&values)[pwm_range_count])
 {

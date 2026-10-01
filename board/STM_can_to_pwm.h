@@ -132,9 +132,9 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
       NVIC_SystemReset();
     }
 
-    // Motor mode only: switch the PWM signals off if no RawCommand has arrived for motor_timeout_ms. They come back
+    // Motor mode only: switch the PWM signals off if no RawCommand has arrived for m_motor_timeout_ms. They come back
     // with the next RawCommand. Servo outputs hold their last value.
-    if (!m_is_servo && m_motor_outputs_active && (HAL_GetTick() - m_last_motor_msg_ms) >= motor_timeout_ms)
+    if (!m_is_servo && m_motor_outputs_active && (HAL_GetTick() - m_last_motor_msg_ms) >= m_motor_timeout_ms)
     {
       for (uint8_t c = 0; c < NUM_PWM_OUTPUTS; c++)
       {
@@ -151,16 +151,15 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   private:
   static constexpr uint32_t restart_delay_ms{500};
-  static constexpr uint32_t motor_timeout_ms{5000};
   static constexpr int64_t node_id_param_max{127};
 
   // Parameter 0 is NODE_ID. Parameters 1 to 16 are the PWM pulse width limits in us, applied immediately:
-  // SERVO_MIN_US_0..3, SERVO_MAX_US_0..3, MOTOR_MIN_US_0..3, MOTOR_MAX_US_0..3. Writing 0 to any of them goes back to
-  // its default.
+  // SERVO_MIN_US_0..3, SERVO_MAX_US_0..3, MOTOR_MIN_US_0..3, MOTOR_MAX_US_0..3. Parameter 17 is MOTOR_TIMEOUT_MS.
+  // Writing 0 to any of them goes back to its default.
   class Param_manager : public uavcan::IParamManager
   {
     static constexpr const char *node_id_name{"NODE_ID"};
-    static constexpr uint32_t param_count{1 + Stm_settings::pwm_range_count};
+    static constexpr uint32_t param_count{2 + Stm_settings::pwm_limit_count};
 
     STM_can_to_pwm &m_owner;
 
@@ -184,6 +183,11 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
         return false;
       }
       const uint32_t i = index - 1;
+      if (i == timeout_index)
+      {
+        strcpy(buf, "MOTOR_TIMEOUT_MS");
+        return true;
+      }
       strcpy(buf, prefixes[i / 4]);
       const size_t n = strlen(buf);
       buf[n] = (char)('0' + i % 4);
@@ -194,7 +198,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // Parameter index for a name, or -1
     static int find(const Name &name)
     {
-      char buf[16];
+      char buf[20];
       for (uint32_t i = 0; i < param_count; i++)
       {
         if (param_name(i, buf) && name == buf)
@@ -214,7 +218,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     private:
     void getParamNameByIndex(Index index, Name &out_name) const override
     {
-      char buf[16];
+      char buf[20];
       if (param_name(index, buf))
       {
         out_name = buf;
@@ -248,7 +252,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
       }
 
       const uint32_t i = idx - 1;
-      if (wanted < 0 || wanted > pwm_range_param_max)
+      if (wanted < 0 || wanted > 0xFFFE || (wanted != 0 && !stored_value_ok(i, (uint16_t)wanted)))
       {
         return;
       }
@@ -286,7 +290,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
         return;
       }
       out_default.to<Value::Tag::integer_value>() = idx == 0 ? 0 : default_range(idx - 1);
-      out_max.to<NumericValue::Tag::integer_value>() = idx == 0 ? node_id_param_max : pwm_range_param_max;
+      out_max.to<NumericValue::Tag::integer_value>() =
+          idx == 0 ? node_id_param_max : (idx - 1 == (int)timeout_index ? motor_timeout_param_max : pwm_range_param_max);
       out_min.to<NumericValue::Tag::integer_value>() = 0;
     }
 
@@ -296,7 +301,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
       return 0;
     }
 
-    // Back to the default node ID and PWM limits
+    // Back to the default node ID, PWM limits and motor timeout
     int eraseAllParams() override
     {
       const bool ok = Stm_settings::erase(Stm_settings::node_id) && Stm_settings::erase(Stm_settings::pwm_ranges);
@@ -336,15 +341,39 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   uint16_t m_motor_max_us[NUM_PWM_OUTPUTS];
   uint16_t m_servo_range_us[NUM_PWM_OUTPUTS];
   uint16_t m_motor_range_us[NUM_PWM_OUTPUTS];
-  // Values stored in flash, 0xFFFF = not set. Same order as Stm_settings::read_pwm_ranges()
+  // Motor mode command timeout in use (ms)
+  uint32_t m_motor_timeout_ms{default_motor_timeout_ms};
+  // Values stored in flash, 0xFFFF = not set. Same order as Stm_settings::read_pwm_ranges(): the 16 pulse width limits
+  // then the motor timeout
   uint16_t m_stored_ranges[Stm_settings::pwm_range_count];
 
   static constexpr int64_t pwm_range_param_max{20000}; // one 50 Hz period
+  static constexpr uint32_t timeout_index{Stm_settings::pwm_limit_count};
+  static constexpr int64_t motor_timeout_param_min{100}; // ms, the smallest value accepted (0 = default)
+  static constexpr int64_t motor_timeout_param_max{60000};
+
+  // Whether a stored value is acceptable for entry i (0xFFFF, "not set", always is)
+  static bool stored_value_ok(uint32_t i, uint16_t v)
+  {
+    if (v == 0xFFFF)
+    {
+      return true;
+    }
+    if (i == timeout_index)
+    {
+      return v >= motor_timeout_param_min && v <= motor_timeout_param_max;
+    }
+    return v >= 1 && v <= pwm_range_param_max;
+  }
 
   // Defaults for the range parameter with this flat index (0 to 15): group (servo min, servo max, motor min, motor
   // max) times 4 plus output
-  static uint16_t default_range(uint32_t i)
+  static uint32_t default_range(uint32_t i)
   {
+    if (i == timeout_index)
+    {
+      return default_motor_timeout_ms;
+    }
     static const uint16_t *const tables[4] = {minimum_servo_us, maximum_servo_us, minimum_motor_us, maximum_motor_us};
     return tables[i / 4][i % 4];
   }
@@ -356,7 +385,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   }
 
   // The value in use for range parameter i: the stored one, or the default
-  uint16_t effective_range(uint32_t i, const uint16_t *stored) const
+  uint32_t effective_range(uint32_t i, const uint16_t *stored) const
   {
     return stored[i] != 0xFFFF ? stored[i] : default_range(i);
   }
@@ -365,7 +394,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   bool ranges_valid(const uint16_t *stored) const
   {
     // Servo limits start at index 0 and motor limits at index 8; the maxima are 4 after the minima
-    for (uint32_t base = 0; base < Stm_settings::pwm_range_count; base += 8)
+    for (uint32_t base = 0; base < Stm_settings::pwm_limit_count; base += 8)
     {
       for (uint32_t c = 0; c < NUM_PWM_OUTPUTS; c++)
       {
@@ -384,16 +413,16 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     for (uint32_t i = 0; i < Stm_settings::pwm_range_count; i++)
     {
       // Ignore anything out of range (the page is erased, 0xFFFF, when nothing has been stored)
-      if (m_stored_ranges[i] == 0 || (m_stored_ranges[i] != 0xFFFF && m_stored_ranges[i] > pwm_range_param_max))
+      if (!stored_value_ok(i, m_stored_ranges[i]) || m_stored_ranges[i] == 0)
       {
         m_stored_ranges[i] = 0xFFFF;
       }
     }
     if (!ranges_valid(m_stored_ranges))
     {
-      for (auto &v : m_stored_ranges)
+      for (uint32_t i = 0; i < Stm_settings::pwm_limit_count; i++)
       {
-        v = 0xFFFF;
+        m_stored_ranges[i] = 0xFFFF;
       }
     }
     apply_ranges();
@@ -401,10 +430,11 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void apply_ranges()
   {
-    for (uint32_t i = 0; i < Stm_settings::pwm_range_count; i++)
+    for (uint32_t i = 0; i < Stm_settings::pwm_limit_count; i++)
     {
       *range_slot(i) = effective_range(i, m_stored_ranges);
     }
+    m_motor_timeout_ms = effective_range(timeout_index, m_stored_ranges);
     for (uint32_t c = 0; c < NUM_PWM_OUTPUTS; c++)
     {
       m_servo_range_us[c] = m_servo_max_us[c] - m_servo_min_us[c];
