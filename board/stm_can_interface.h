@@ -36,7 +36,7 @@ class Stm_can_iface : public ICanIface
     hfdcan1.Init.DataTimeSeg1 = 1;
     hfdcan1.Init.DataTimeSeg2 = 1;
     hfdcan1.Init.StdFiltersNbr = 0;
-    hfdcan1.Init.ExtFiltersNbr = 0;
+    hfdcan1.Init.ExtFiltersNbr = 1;
     hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
     __HAL_RCC_FDCAN_CLK_ENABLE();
@@ -62,6 +62,10 @@ class Stm_can_iface : public ICanIface
     filter.FilterID2 = 0x00000000;
 
     m_initialized &= (HAL_FDCAN_ConfigFilter(&hfdcan1, &filter) == HAL_OK);
+
+    // Reject standard frames and any extended frame not matching the filter above
+    m_initialized &= (HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE,
+                                                   FDCAN_FILTER_REMOTE) == HAL_OK);
 
     tx_header.IdType = FDCAN_EXTENDED_ID;
     tx_header.TxFrameType = FDCAN_DATA_FRAME;

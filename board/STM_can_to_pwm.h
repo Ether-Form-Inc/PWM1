@@ -164,6 +164,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void set_unitless_servo(uint8_t channel_x, float unitless)
   {
+    // Clamp so out-of-range commands cannot produce out-of-range pulse widths
+    unitless = unitless < -1.f ? -1.f : (unitless > 1.f ? 1.f : unitless);
     uint16_t pulse_us =
         static_cast<uint16_t>(((unitless + 1.f) / 2.f) * m_servo_range_us[channel_x]) + minimum_servo_us[channel_x];
     set_us_servo(channel_x, pulse_us);
@@ -188,6 +190,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
     // This is because 0 corresponds to 0 (negative range should be ignored)
     float val_thresh = static_cast<float>(std::abs(cmd)) / 8192.f;
+    val_thresh = val_thresh > 1.f ? 1.f : val_thresh;
 
     uint16_t mapped_pwm_offset_from_min =
         static_cast<uint16_t>(val_thresh * static_cast<float>(m_motor_range_us[channel_x]));

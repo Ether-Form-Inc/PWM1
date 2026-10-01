@@ -22,15 +22,6 @@ file(GLOB source
 
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-FetchContent_Declare(
-  libuavcan
-  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
-  GIT_TAG        EFI_main 
-  GIT_SHALLOW    FALSE
-  SOURCE_DIR     ${LIBUAVCAN_SRC}
-  BINARY_DIR     ${LIBUAVCAN_BUILD}
-)
-FetchContent_MakeAvailable(libuavcan)
 
 add_executable(${PROJECT_NAME} ${source})
 

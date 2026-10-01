@@ -46,6 +46,17 @@ if(${ARCH} STREQUAL "STM")
   )
   FetchContent_Populate(stm32_g0xx)
 
+  FetchContent_Declare(
+    libuavcan
+    GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git
+    GIT_TAG        EFI_main
+    GIT_SHALLOW    FALSE
+    SOURCE_DIR     ${LIBUAVCAN_SRC}
+    BINARY_DIR     ${LIBUAVCAN_BUILD}
+  )
+  FetchContent_MakeAvailable(libuavcan)
+
+  add_subdirectory(messages)
   add_subdirectory(stm_generated)
 elseif(${ARCH} STREQUAL "POSIX")
 
