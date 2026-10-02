@@ -19,9 +19,8 @@
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
-#include <STM_can_to_pwm.h>
+#include <Canard_pwm_node.h>
 #include <Stm_settings.h>
-#include <stm_can_interface.h>
 
 // Node ID used when none is stored in flash
 #define DEFAULT_NODE_ID 10
@@ -89,15 +88,10 @@ int main(void)
   }
 
   // This needs to be static as we will blow through the stack otherwise
-  static STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{actuator_id, is_servo, node_id};
-  can_to_pwm.initialize();
+  static Canard_pwm_node node{node_id, is_servo, actuator_id};
 
-  // Ensure uavcan has time to finish node transmission
-  HAL_Delay(1);
-
-  // Receive and process can frames
-  bool stop{false};
-  can_to_pwm.main(stop, 1);
+  // Serves the CAN node and the PWM outputs forever
+  node.run();
 
   // This should never be reached
   while (1)

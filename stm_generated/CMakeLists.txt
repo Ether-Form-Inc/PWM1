@@ -23,22 +23,25 @@ file(GLOB source
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 
-add_executable(${PROJECT_NAME} ${source})
+include(${CMAKE_SOURCE_DIR}/cmake/dronecan_c.cmake)
+
+add_executable(${PROJECT_NAME} ${source} ${CANARD_SRC_DIR}/canard.c ${DSDLC_SOURCES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}.elf)
 
-target_include_directories(${PROJECT_NAME} PRIVATE 
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/board
-    ${LIBUAVCAN_SRC}/libuavcan/include
-    ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
-    ${CMAKE_SOURCE_DIR}/messages/compiled
-    ${EFI_CAN_COMMON_SRC} 
+    ${CANARD_SRC_DIR}
+    ${DSDLC_GEN_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/Core/Inc
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    UAVCAN_CPP_VERSION=UAVCAN_CPP11
-)
+# Minimum delay between transmitted CAN frames in ms (0 = none). A test aid for slow USB-CAN adapters whose serial
+# link drops back-to-back frames.
+set(CAN_TX_MIN_SPACING_MS 0 CACHE STRING "Minimum ms between transmitted CAN frames")
+if(CAN_TX_MIN_SPACING_MS GREATER 0)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE CAN_TX_MIN_SPACING_MS=${CAN_TX_MIN_SPACING_MS})
+endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     --specs=nano.specs
@@ -49,14 +52,12 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 target_link_options(${PROJECT_NAME} PRIVATE
     -T ${CMAKE_SOURCE_DIR}/stm_generated/STM32G0B1KBTX_FLASH.ld
-    -u _printf_float
     -Wl,--gc-sections
     -Wl,-Map=firmware.map
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
   stm32cubeg0
-  uavcan
 )
 
 # "make flash" programs the board over SWD and checks that it works (see tools/flash_and_check.py). It needs Python 3
