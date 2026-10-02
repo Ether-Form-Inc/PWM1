@@ -1,5 +1,5 @@
 # Overview
-This repo contains the firmware to be flashed onto EFI's can\_to\_pwm hardware to respond to DroneCAN protocol which is the current protocol maintained by px4. The libuavcan repo is depracated. In the interest of a reduced software footprint a forked libuavcan repo was used (forked for reduced flash usage). However if a smaller footprint is desired the libcanard repo can be used (https://github.com/dronecan/libcanard.git). 
+This repo contains the firmware to be flashed onto EFI's can\_to\_pwm hardware to respond to DroneCAN protocol which is the current protocol maintained by px4. The libuavcan repo is deprecated. In the interest of a reduced software footprint a forked libuavcan repo was used (forked for reduced flash usage). However if a smaller footprint is desired the libcanard repo can be used (https://github.com/dronecan/libcanard.git). 
 
 This repo is written to be compatible with Ether Form Incorporated (EFI)'s  can\_to\_pwm Rev B+. 
 
@@ -65,6 +65,16 @@ J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can 
 * Writing 0 removes the stored ID so the default of 10 is used again. `uavcan.protocol.param.ExecuteOpcode` with the erase opcode removes the stored ID and the stored pulse width limits.
 
 Writing flash stops the processor for a few tens of milliseconds, so do not change the ID while the actuators are in use.
+
+## Python tools
+The scripts in `tools/` talk to the board through a serial USB-CAN adapter (`pip install dronecan pyserial`) or an ST-LINK:
+
+| Script | Purpose |
+|--------|---------|
+| `flash_and_check.py` | Program, verify and check a board over SWD and CAN (also run by `make flash`); set or clear the node ID or all settings |
+| `can_pwm_param.py` | List, read and set the parameters (node ID, pulse width limits, motor timeout), erase them, restart the node |
+| `can_getnodeinfo.py` | Read GetNodeInfo (name, version, health) from a node |
+| `motor_ramp.py` | Ramp the outputs 0 to full scale and back, in motor or servo mode, for bench tests (remove the propellers first) |
 
 # Building and Flashing
 The software can be built for two different architectures, STM32 and POSIX. The POSIX build can be used to verify, experiment, and test the software/hardware, whereas the STM32 architecture will load onto EFI's HW for CAN based actuation.
@@ -140,6 +150,6 @@ However, any such converter can be used (If not UART to CAN then a substitute in
 ----
 
 1. A command line application which commands servo or motor commands which the can\_to\_pwm board will receive and respond to.
-2. An application which will receive and decode uavcan messages. This can be used to verify the CLI application or receive board hearbeats.
-3. This applciation specifically tests the SW interface with HW out of the loop. It will verify that the UAVCAN code as written can be transmitted and received over the selected interface (usbcan in this instance)
+2. An application which will receive and decode uavcan messages. This can be used to verify the CLI application or receive board heartbeats.
+3. This application specifically tests the SW interface with HW out of the loop. It will verify that the UAVCAN code as written can be transmitted and received over the selected interface (usbcan in this instance)
 4. This test will uses custom implemented echo message type to verify that the HW is alive. It will further test components of the can\_to\_pwm board which can be verified without additional HW.
