@@ -101,12 +101,15 @@ o += 3                      # sub_mode
 vendor = bits(p, o, 16); o += 16
 sw_major = bits(p, o, 8); o += 8
 sw_minor = bits(p, o, 8); o += 8
-o += 8 + 32 + 64            # optional flags, vcs commit, image crc
+sw_flags = bits(p, o, 8); o += 8
+sw_commit = bits(p, o, 32); o += 32
+o += 64                     # image crc
 hw_major = bits(p, o, 8); o += 8
 hw_minor = bits(p, o, 8); o += 8
 uid = (int.from_bytes(p, "little") >> o & ((1 << 128) - 1)).to_bytes(16, "little"); o += 128
 cert_len = bits(p, o, 8); o += 8 + cert_len * 8
 name = p[o // 8:].decode(errors="replace")
 print(f"CRC {'OK' if crc_ok else 'BAD'}; uptime {uptime} s, health {['OK', 'WARNING', 'ERROR', 'CRITICAL'][health]}, mode {mode}, vendor status {vendor}")
-print(f"software {sw_major}.{sw_minor}, hardware {hw_major}.{hw_minor}, unique id {uid.hex()}")
+commit = f", commit {sw_commit:08x}" if sw_flags & 1 else ""
+print(f"software {sw_major}.{sw_minor}{commit}, hardware {hw_major}.{hw_minor}, unique id {uid.hex()}")
 print(f"name: {name!r}")

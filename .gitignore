@@ -2,3 +2,6 @@
 build*
 messages/compiled
 *.pdf
+
+__pycache__/
+*.pyc

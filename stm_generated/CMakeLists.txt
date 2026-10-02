@@ -23,22 +23,38 @@ file(GLOB source
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 
-add_executable(${PROJECT_NAME} ${source})
+include(${CMAKE_SOURCE_DIR}/cmake/dronecan_c.cmake)
+
+# fw_version.h holds the version and the git commit; it is regenerated at every build
+set(FW_VERSION_HEADER ${CMAKE_BINARY_DIR}/generated/fw_version.h)
+add_custom_target(fw_version ALL
+    COMMAND ${CMAKE_COMMAND} -DSRC_DIR=${CMAKE_SOURCE_DIR} -DOUT=${FW_VERSION_HEADER}
+            -DMAJOR=${FIRMWARE_VERSION_MAJOR} -DMINOR=${FIRMWARE_VERSION_MINOR} -DPATCH=${FIRMWARE_VERSION_PATCH}
+            -P ${CMAKE_SOURCE_DIR}/cmake/gen_version.cmake
+    BYPRODUCTS ${FW_VERSION_HEADER}
+    VERBATIM)
+
+add_executable(${PROJECT_NAME} ${source} ${CANARD_SRC_DIR}/canard.c ${DSDLC_SOURCES})
+add_dependencies(${PROJECT_NAME} fw_version)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}.elf)
 
-target_include_directories(${PROJECT_NAME} PRIVATE 
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/board
-    ${LIBUAVCAN_SRC}/libuavcan/include
-    ${LIBUAVCAN_SRC}/libuavcan/include/dsdlc_generated
-    ${CMAKE_SOURCE_DIR}/messages/compiled
-    ${EFI_CAN_COMMON_SRC} 
+    ${CMAKE_BINARY_DIR}/generated
+    ${CANARD_SRC_DIR}
+    ${DSDLC_GEN_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/Core/Inc
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    UAVCAN_CPP_VERSION=UAVCAN_CPP11
-)
+# Minimum delay between transmitted CAN frames in ms (0 = none). The serial USB-CAN adapters used for bring-up and
+# testing lose the end of a burst of frames (a 7 frame parameter reply came back cut short every time), so frames are
+# spaced 1 ms apart. NodeStatus is a single frame and parameter or GetNodeInfo replies are rare, so this costs nothing
+# on a real bus.
+set(CAN_TX_MIN_SPACING_MS 1 CACHE STRING "Minimum ms between transmitted CAN frames")
+if(CAN_TX_MIN_SPACING_MS GREATER 0)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE CAN_TX_MIN_SPACING_MS=${CAN_TX_MIN_SPACING_MS})
+endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     --specs=nano.specs
@@ -49,14 +65,12 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 target_link_options(${PROJECT_NAME} PRIVATE
     -T ${CMAKE_SOURCE_DIR}/stm_generated/STM32G0B1KBTX_FLASH.ld
-    -u _printf_float
     -Wl,--gc-sections
     -Wl,-Map=firmware.map
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
   stm32cubeg0
-  uavcan
 )
 
 # "make flash" programs the board over SWD and checks that it works (see tools/flash_and_check.py). It needs Python 3
