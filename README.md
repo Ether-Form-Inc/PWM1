@@ -112,7 +112,7 @@ It takes about 25 s and does, in order:
 6. **Calibrates `PWM_PRESCALE`:** the node times its PWM output with the MCU's timer, and the script sets the prescale that gives a 20 ms period (see PWM timing calibration). The result must be within 1 % of 20 ms (`--tolerance`).
 7. Times all four outputs and checks their period and idle pulse width.
 8. Checks only the calibration is stored in flash: the node ID, pulse width limits and everything else stay at their defaults.
-9. Prints **PASS** or **FAIL** (exit code 0 only for PASS) and appends a line to `bring_up_log.csv` in the repository folder (chip unique ID, firmware, hardware, prescale, measured periods, J5 settings, result and any problems). The log is not part of git; keep or commit it as you like.
+9. Prints **PASS** or **FAIL** (exit code 0 only for PASS) and appends a line to `bring_up_log.csv` in the repository folder (chip unique ID, firmware, hardware, prescale, measured periods, J5 settings, result and any problems). The log is git-ignored: it stays on the machine that ran the bring-ups, so copy it wherever you keep production records.
 
 The calibration uses the MCU's internal 16 MHz oscillator as the time reference (about +-1 %), and the prescale changes the period in steps of about 0.8 %, so the calibrated period is within about 1 % of 20 ms. The measurement is a bench feature: the node refuses it once it has received a command since it started, because it drives an output with the idle pulse while it measures. `tools/can_pwm_param.py 10 measure 0` runs it by hand.
 
