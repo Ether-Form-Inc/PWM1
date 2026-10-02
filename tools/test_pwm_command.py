@@ -87,6 +87,12 @@ class BusInspectionTests(unittest.TestCase):
         senders, _ = p.inspect_bus(frames)
         self.assertEqual(senders, {(1030, 99), (1010, 51)})
 
+    def test_another_node_id_can_be_watched(self):
+        frames = [(self.message_id(1, 341, 10), b""), (self.message_id(20, 341, 42), b"")]
+        self.assertEqual(p.inspect_bus(frames, 42), (set(), 20))
+        self.assertEqual(p.inspect_bus(frames, 10), (set(), 1))
+        self.assertEqual(p.inspect_bus(frames, 11), (set(), None))
+
     def test_our_own_frames_and_services_are_ignored(self):
         frames = [(self.message_id(8, 1030, 50), b""),                  # us
                   (self.message_id(20, 1030, 7) | 0x80, b"")]           # a service frame that looks similar
@@ -109,6 +115,13 @@ class ArgumentTests(unittest.TestCase):
     def test_the_command_types_cannot_be_mixed(self):
         with self.assertRaises(SystemExit):
             self.parse("--motor", "0=1", "--servo-us", "0=1500")
+
+    def test_node_defaults_to_10_and_is_checked(self):
+        self.assertEqual(self.parse("--motor", "0=1").node, 10)
+        self.assertEqual(self.parse("--motor", "0=1", "--node", "42").node, 42)
+        for bad in ("0", "128", "-1"):
+            with self.assertRaises(SystemExit):
+                self.parse("--motor", "0=1", "--node", bad)
 
     def test_bad_offset_and_rate(self):
         for argv in (["--motor", "0=1", "--offset", "8"], ["--motor", "0=1", "--rate", "0"]):

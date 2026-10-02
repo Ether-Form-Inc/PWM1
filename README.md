@@ -80,7 +80,7 @@ tools/can_pwm_param.py 10 erase                      # back to the defaults (als
 ```
 
 ## Commanding outputs by hand
-`tools/pwm_command.py` holds output values until Ctrl-C, for bench testing. **Remove the propellers before commanding motors.** Outputs are numbered 0 to 3; add `--offset N` for a board with a J5 actuator ID offset.
+`tools/pwm_command.py` holds output values until Ctrl-C, for bench testing. **Remove the propellers before commanding motors.** Outputs are numbered 0 to 3; add `--offset N` for a board with a J5 actuator ID offset, and `--node N` if the board's DroneCAN node ID is not 10 (it is only used to read the board's mode; the commands themselves are broadcast).
 
 ```bash
 tools/pwm_command.py --motor 0=300 2=300          # motor mode: RawCommand values 0 to 8191 on outputs 0 and 2

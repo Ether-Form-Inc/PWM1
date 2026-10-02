@@ -12,8 +12,9 @@ the board; --offset N adds the board's J5 actuator ID offset (the DroneCAN actua
   pwm_command.py --servo-us 1=1500 3=1200      servo pulse widths in microseconds (exact up to 2048 us)
   pwm_command.py --servo-unitless 0=-0.5       servo positions from -1 to +1 (mapped onto the servo limits)
 
-Options: --duration SECONDS, --rate HZ (default 20), --offset N, --allow-high (motor values above 2048, about 25 %),
---force (send even if another sender is on the bus), --no-wait.
+Options: --node N (the board's DroneCAN node ID, default 10: used to read its mode from its NodeStatus; the commands
+themselves are broadcast and work with any node ID), --duration SECONDS, --rate HZ (default 20), --offset N,
+--allow-high (motor values above 2048, about 25 %), --force (send even if another sender is on the bus), --no-wait.
 
 Safety: the adapter is opened exclusively, so a second program using it (a leftover motor_ramp.py, another pwm_command.py)
 is refused. Before sending it also listens to the bus for about 1.5 s and refuses to start if another node is sending
@@ -99,6 +100,7 @@ def parse_args(argv=None):
     group.add_argument("--motor", nargs="+", metavar="OUT=VALUE")
     group.add_argument("--servo-us", nargs="+", metavar="OUT=US", dest="servo_us")
     group.add_argument("--servo-unitless", nargs="+", metavar="OUT=VALUE", dest="servo_unitless")
+    ap.add_argument("--node", type=int, default=NODE, help="the board's DroneCAN node ID (default %d), used to read its mode" % NODE)
     ap.add_argument("--offset", type=int, default=0, help="the board's J5 actuator ID offset (0 to 7)")
     ap.add_argument("--duration", type=float, help="seconds to send for (default: until Ctrl-C)")
     ap.add_argument("--rate", type=float, default=20.0, help="messages per second (default 20)")
@@ -114,6 +116,8 @@ def parse_args(argv=None):
         args.kind, tokens = "servo-unitless", args.servo_unitless
     try:
         args.values = parse_pairs(tokens, args.kind)
+        if not 1 <= args.node <= 127:
+            raise ValueError("--node is a DroneCAN node ID, 1 to 127")
         if not 0 <= args.offset <= 7:
             raise ValueError("--offset is the J5 offset, 0 to 7")
         if not 1 <= args.rate <= 50:
@@ -127,8 +131,8 @@ def parse_args(argv=None):
     return args
 
 
-def inspect_bus(frames, our_id=50):
-    """From raw frames: (other command senders seen, the node's NodeStatus priority or None)."""
+def inspect_bus(frames, node=NODE, our_id=50):
+    """From raw frames: (other command senders seen, the NodeStatus priority of node `node` or None)."""
     senders, priority = set(), None
     for can_id, _ in frames:
         if can_id & 0x80:                       # a service frame
@@ -136,7 +140,7 @@ def inspect_bus(frames, our_id=50):
         type_id, source = (can_id >> 8) & 0xFFFF, can_id & 0x7F
         if type_id in (RAW_COMMAND_ID, ARRAY_COMMAND_ID) and source != our_id:
             senders.add((type_id, source))
-        if type_id == NODE_STATUS_ID and source == NODE:
+        if type_id == NODE_STATUS_ID and source == node:
             priority = (can_id >> 24) & 0x1F
     return senders, priority
 
@@ -145,22 +149,22 @@ def main():
     args = parse_args()
     from can_link import CanLink, LinkError
     try:
-        link = CanLink(args.device, NODE)
+        link = CanLink(args.device, args.node)
     except LinkError as e:
         sys.exit(str(e))
     try:
         print("listening to the bus for 1.5 s ...", flush=True)
-        senders, priority = inspect_bus(link.read_frames(1.5))
+        senders, priority = inspect_bus(link.read_frames(1.5), args.node)
         if senders and not args.force:
             who = ", ".join("%s from node %d" % ("RawCommand" if t == RAW_COMMAND_ID else "ArrayCommand", s)
                             for t, s in sorted(senders))
             sys.exit("another command sender is active on the bus (%s). Stop it first (a flight controller or a second "
                      "adapter), or use --force." % who)
         if priority is None:
-            print("note: no NodeStatus from node %d was seen, so the board may not be connected" % NODE)
+            print("note: no NodeStatus from node %d was seen, so the board may not be connected or has another node ID (--node)" % args.node)
         else:
             mode = "motor" if priority < 10 else "servo"
-            print("node %d is in %s mode (NodeStatus priority %d)" % (NODE, mode, priority))
+            print("node %d is in %s mode (NodeStatus priority %d)" % (args.node, mode, priority))
             if (args.kind == "motor") != (mode == "motor"):
                 print("WARNING: you are sending %s commands to a node in %s mode: it ignores them. J5 row 1 open "
                       "is motor mode, fitted is servo mode; the mode is read at power-up." % (args.kind, mode))
