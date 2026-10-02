@@ -79,20 +79,40 @@ cmake .. -DARCH=STM
 make
 ```
 
-After connecting an appropriate USB based STM32 flasher (e.g. STLINK-V3MINNIE), either run (requires `openocd`):
+After connecting an appropriate USB based STM32 flasher (e.g. STLINK-V3MINNIE):
 
 ```bash
 make flash
 ```
 
-or program the ELF with STM32CubeProgrammer:
-
-```bash
-STM32_Programmer_CLI -c port=SWD mode=UR -e all -d stm_generated/can_pwm_firmware.elf -v -rst
-```
+This runs `tools/flash_and_check.py`, which programs and verifies the firmware over SWD with OpenOCD, resets the board and checks that it works (see below). It needs Python 3 and OpenOCD; the copy that ships with STM32CubeIDE is found automatically, otherwise put `openocd` on the PATH or set `OPENOCD` and `OPENOCD_SCRIPTS`. Pass extra options to the script with `-DFLASH_ARGS`, for example `cmake .. -DFLASH_ARGS="--can-device none"`.
 
 The SW is now loaded on your HW. 
 
+
+### Programming and checking boards with `tools/flash_and_check.py`
+
+For one board at a time, this script (also run by `make flash`) programs the firmware over SWD with OpenOCD, resets the board and checks that it works. The CAN check also needs `pyserial` and a serial USB-CAN adapter; it is skipped if either is missing.
+
+```bash
+tools/flash_and_check.py                       # program the newest build, then check it over CAN
+tools/flash_and_check.py --elf path/to/can_pwm_firmware.elf
+tools/flash_and_check.py --check-only          # do not program: just read and check the board
+tools/flash_and_check.py --can-device none     # program only, no CAN check
+tools/flash_and_check.py --set-node-id 42      # also store node ID 42 (1 to 127)
+tools/flash_and_check.py --clear-node-id       # also remove a stored ID (back to the default of 10)
+tools/flash_and_check.py --clear-settings      # also erase the node ID, pulse width limits and motor timeout
+```
+
+What it does, in order:
+
+1. Reads the stored node ID and PWM settings, the J5 pins (mode and actuator ID offset) and the chip's unique ID.
+2. Programs and verifies the firmware. The settings pages (flash pages 61 and 62) are not touched, so stored settings survive a firmware update unless you ask for them to be cleared.
+3. Resets the board and works out which node ID it should be using: the stored ID, otherwise 10.
+4. Asks that node for `GetNodeInfo` over CAN and checks that the reply is valid and the health is OK (health ERROR with vendor status 1 means the PCA9685 is not answering).
+5. Prints **PASS** or **FAIL** and exits with 0 only for PASS.
+
+Other options are `--probe-serial` to choose one of several ST-LINKs, `--interface` and `--stock` for a stock OpenOCD (the CubeIDE copy needs the defaults), and `--boot-wait` to allow a slow start. A board that is not on the CAN bus fails the check even though it was programmed correctly; use `--can-device none` for that case. The J5 mode shown is the pin state at the time it is read; the board applies it at start-up.
 
 ## Posix (Testing)
 ```bash
