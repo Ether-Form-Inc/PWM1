@@ -7,6 +7,7 @@
 // ExecuteOpcode (the node ID, pulse width limits and motor timeout parameters), RestartNode and etherform.Echo.
 // All state is static; nothing is allocated outside the libcanard pool.
 
+#include <Fw_info.h>
 #include <Pwm_config.h>
 #include <Stm_fdcan.h>
 #include <Stm_pca9685.h>
@@ -79,8 +80,6 @@ private:
   static constexpr uint32_t cleanup_period_ms = 1000;
   static constexpr uint32_t bus_off_retry_ms = 100;
   static constexpr uint32_t restart_timeout_ms = 500;
-  static constexpr uint8_t sw_version_major = 0;
-  static constexpr uint8_t sw_version_minor = 2;
   static constexpr int64_t node_id_param_max = 127;
   // NodeStatus priority: motor mode uses the highest-but-one priority class the firmware has always used, servo 20
   static constexpr uint8_t priority_motor = 1;
@@ -349,8 +348,13 @@ private:
     memset(buf, 0, sizeof(buf));
 
     fill_node_status(res.status);
-    res.software_version.major = sw_version_major;
-    res.software_version.minor = sw_version_minor;
+    res.software_version.major = FW_VERSION_MAJOR;
+    res.software_version.minor = FW_VERSION_MINOR;
+    if (FW_VCS_COMMIT != 0)
+    {
+      res.software_version.optional_field_flags = UAVCAN_PROTOCOL_SOFTWAREVERSION_OPTIONAL_FIELD_FLAG_VCS_COMMIT;
+      res.software_version.vcs_commit = FW_VCS_COMMIT;
+    }
     res.hardware_version.major = 0;
 
     // 96 bit STM32 unique ID, zero padded to the 128 bits DroneCAN wants

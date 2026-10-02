@@ -25,12 +25,23 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 include(${CMAKE_SOURCE_DIR}/cmake/dronecan_c.cmake)
 
+# fw_version.h holds the version and the git commit; it is regenerated at every build
+set(FW_VERSION_HEADER ${CMAKE_BINARY_DIR}/generated/fw_version.h)
+add_custom_target(fw_version ALL
+    COMMAND ${CMAKE_COMMAND} -DSRC_DIR=${CMAKE_SOURCE_DIR} -DOUT=${FW_VERSION_HEADER}
+            -DMAJOR=${FIRMWARE_VERSION_MAJOR} -DMINOR=${FIRMWARE_VERSION_MINOR} -DPATCH=${FIRMWARE_VERSION_PATCH}
+            -P ${CMAKE_SOURCE_DIR}/cmake/gen_version.cmake
+    BYPRODUCTS ${FW_VERSION_HEADER}
+    VERBATIM)
+
 add_executable(${PROJECT_NAME} ${source} ${CANARD_SRC_DIR}/canard.c ${DSDLC_SOURCES})
+add_dependencies(${PROJECT_NAME} fw_version)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}.elf)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/board
+    ${CMAKE_BINARY_DIR}/generated
     ${CANARD_SRC_DIR}
     ${DSDLC_GEN_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/Core/Inc

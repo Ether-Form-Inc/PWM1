@@ -7,6 +7,12 @@ include(FetchContent)
 # HOST builds the unit tests for the PC.
 set(ARCH "STM" CACHE STRING "Target architecture: STM or HOST")
 
+# The firmware version: reported in GetNodeInfo (major and minor, with the git commit) and stored in flash (see
+# board/Fw_info.h). Change it here.
+set(FIRMWARE_VERSION_MAJOR 0)
+set(FIRMWARE_VERSION_MINOR 3)
+set(FIRMWARE_VERSION_PATCH 0)
+
 if(${ARCH} STREQUAL "STM")
   # The default build types do not fit in the 122 KB flash region, so default to the smallest
   if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)

@@ -20,7 +20,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 #include <Canard_pwm_node.h>
+#include <Fw_info.h>
 #include <Stm_settings.h>
+
+// Firmware identification, placed right after the vector table by the linker script (see Fw_info.h)
+const Fw_info fw_info __attribute__((section(".fw_info"), used)) = {
+    {'P', 'W', 'M', 'F', 'W', 'I', 'N', 'F'}, FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH, FW_VCS_DIRTY,
+    FW_VCS_COMMIT,                                     FW_VERSION_STRING};
 
 // Node ID used when none is stored in flash
 #define DEFAULT_NODE_ID 10

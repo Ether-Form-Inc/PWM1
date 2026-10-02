@@ -42,11 +42,27 @@ PWM_PAGE = (61, 0x0801E800)          # 20 halfwords, see below
 DEFAULT_NODE_ID = 10
 GPIOB_IDR, GPIOA_IDR = 0x50000410, 0x50000010
 UID_ADDRESS = 0x1FFF7590
+FLASH_BASE = 0x08000000
+FW_INFO_MAGIC = b"PWMFWINF"   # see board/Fw_info.h; the block follows the vector table
 
 # Names of the halfwords in the settings page (0xFFFF = not set, the default is used); see board/Pwm_config.h
 PWM_NAMES = ([f"SERVO_MIN_US_{i}" for i in range(4)] + [f"SERVO_MAX_US_{i}" for i in range(4)] +
              [f"MOTOR_MIN_US_{i}" for i in range(4)] + [f"MOTOR_MAX_US_{i}" for i in range(4)] +
              ["MOTOR_TIMEOUT_MS", "MOTOR_TIMEOUT_ACTION", "PWM_PRESCALE"] + ["(unused)"])
+
+
+def parse_fw_info(data):
+    """The firmware identification block in a byte string (flash contents or an ELF file), or None."""
+    i = data.find(FW_INFO_MAGIC)
+    while i >= 0:
+        block = data[i:i + 48]
+        if len(block) == 48:
+            version = block[16:48].split(b"\0")[0]
+            if version and all(32 <= c < 127 for c in version):
+                return {"version": version.decode(), "major": block[8], "minor": block[9], "patch": block[10],
+                        "dirty": block[11], "commit": int.from_bytes(block[12:16], "little")}
+        i = data.find(FW_INFO_MAGIC, i + 1)
+    return None
 
 
 def newest_elf():
@@ -122,15 +138,20 @@ class Probe:
                         'echo "PWM [read_memory 0x%08X 32 10]"' % PWM_PAGE[1],
                         'echo "PINS [read_memory 0x%08X 32 1] [read_memory 0x%08X 32 1]"' % (GPIOB_IDR, GPIOA_IDR),
                         'echo "UID [read_memory 0x%08X 32 3]"' % UID_ADDRESS,
+                        'echo "FW [read_memory 0x%08X 32 128]"' % FLASH_BASE,
                         "resume"])
         if out is None:
             return None
         state = {}
         for line in out.splitlines():
-            m = re.match(r"^(ID|PWM|PINS|UID) (.*)$", line.strip())
+            m = re.match(r"^(ID|PWM|PINS|UID|FW) (.*)$", line.strip())
             if m:
                 state[m.group(1)] = [int(x, 16) for x in m.group(2).split()]
-        return state if {"ID", "PWM", "PINS", "UID"} <= set(state) else None
+        if not {"ID", "PWM", "PINS", "UID", "FW"} <= set(state):
+            return None
+        flash = b"".join(w.to_bytes(4, "little") for w in state["FW"])
+        state["fw_info"] = parse_fw_info(flash)
+        return state
 
 
 def stored_byte(words):
@@ -174,7 +195,9 @@ def describe(state):
     settings = stored_settings(state)
     servo, offset = jumpers(state)
     uid = "".join("%08x" % w for w in reversed(state["UID"]))
-    text = ["stored node ID: %s" % ("none (default %d)" % DEFAULT_NODE_ID if node is None else node),
+    fw = state.get("fw_info")
+    text = ["firmware on the board: %s" % (fw["version"] if fw else "no version information (older firmware)"),
+            "stored node ID: %s" % ("none (default %d)" % DEFAULT_NODE_ID if node is None else node),
             "J5: %s mode, actuator ID offset %d" % ("servo" if servo else "motor", offset),
             "stored PWM settings: %s" % (", ".join("%s=%d" % kv for kv in settings.items()) if settings
                                          else "none (defaults)"),
@@ -206,10 +229,14 @@ def main():
         print("   " + line)
 
     commands = ["catch {halt}"]
+    elf_info = None
     if not args.check_only:
         if not args.elf or not os.path.exists(args.elf):
             sys.exit("FAIL: no firmware found; build it or pass --elf")
         step("programming %s" % os.path.relpath(args.elf))
+        with open(args.elf, "rb") as f:
+            elf_info = parse_fw_info(f.read())
+        print("   firmware to program: %s" % (elf_info["version"] if elf_info else "no version information"))
         commands.append("program %s verify" % args.elf.replace("\\", "/"))
     id_file = None
     if args.clear_settings:
@@ -248,6 +275,10 @@ def main():
     for line in describe(after):
         print("   " + line)
 
+    if elf_info and (not after["fw_info"] or after["fw_info"]["version"] != elf_info["version"]):
+        failures.append("the firmware on the board (%s) is not the one that was programmed (%s)" %
+                        (after["fw_info"]["version"] if after["fw_info"] else "unknown", elf_info["version"]))
+
     if args.clear_settings:
         if stored_byte(after["ID"]) is not None or stored_settings(after):
             failures.append("settings are still stored after --clear-settings")
@@ -285,7 +316,17 @@ def main():
             print("   " + line)
         if "CRC OK" not in text:
             failures.append("no valid GetNodeInfo reply from node %d" % node)
-        elif "health OK" not in text:
+        else:
+            # The version the node reports over CAN must be the one stored in flash
+            m = re.search(r"software (\d+)\.(\d+)(?:, commit ([0-9a-f]{8}))?", text)
+            fw = after["fw_info"]
+            if m and fw:
+                if (int(m.group(1)), int(m.group(2))) != (fw["major"], fw["minor"]):
+                    failures.append("the node reports software %s.%s but the flash holds %s" %
+                                    (m.group(1), m.group(2), fw["version"]))
+                elif m.group(3) and int(m.group(3), 16) != fw["commit"]:
+                    failures.append("the node reports commit %s but the flash holds %s" % (m.group(3), fw["version"]))
+        if "CRC OK" in text and "health OK" not in text:
             failures.append("the node reports a fault (see the health above; ERROR with vendor code 1 means the "
                             "PCA9685 is not answering)")
 

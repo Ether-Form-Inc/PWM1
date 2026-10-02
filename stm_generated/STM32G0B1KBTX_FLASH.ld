@@ -62,6 +62,14 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  /* Firmware identification (version and git commit), kept right after the vector table so tools can find it */
+  .fw_info :
+  {
+    . = ALIGN(4);
+    KEEP(*(.fw_info))
+    . = ALIGN(4);
+  } >FLASH
+
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
   {
