@@ -180,7 +180,7 @@ https://www.electromaker.io/shop/product/usb-can-analyzer?srsltid=AfmBOoo8ui31hk
 * `tools/can_pwm_param.py` reads and sets the parameters.
 * `tools/motor_ramp.py` drives the outputs through the whole range (remove the propellers first).
 
-The USB-CAN adapter drops frames now and then, so the tools repeat requests; a single "no reply" does not mean a fault.
+The USB-CAN adapter drops frames now and then, so the tools repeat requests; a single "no reply" does not mean a fault. The adapter in particular loses the end of a burst of frames, so the firmware spaces the frames it sends 1 ms apart (`CAN_TX_MIN_SPACING_MS` in `stm_generated/CMakeLists.txt`, 0 turns it off). Without that, long replies such as parameter responses were cut short about half the time.
 
 # License
 The firmware in this repository is released under the MIT License (see `LICENSE`). Third-party components that are

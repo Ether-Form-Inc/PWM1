@@ -18,11 +18,11 @@ std::string name_of(uint32_t index)
 }
 } // namespace
 
-TEST(ParamNames, ThereAreTwentyOne)
+TEST(ParamNames, ThereAreTwentyFour)
 {
-  EXPECT_EQ(Pwm::param_count, 21u);
+  EXPECT_EQ(Pwm::param_count, 24u);
   char buf[Pwm::param_name_max];
-  EXPECT_FALSE(Pwm::param_name(21, buf));
+  EXPECT_FALSE(Pwm::param_name(24, buf));
 }
 
 TEST(ParamNames, Order)
@@ -38,6 +38,9 @@ TEST(ParamNames, Order)
   EXPECT_EQ(name_of(18), "MOTOR_TIMEOUT_ACTION");
   EXPECT_EQ(name_of(19), "PWM_PRESCALE");
   EXPECT_EQ(name_of(20), "MOTOR_ARM_MS");
+  EXPECT_EQ(name_of(21), "PWM_MEASURE");
+  EXPECT_EQ(name_of(22), "PWM_PERIOD_US");
+  EXPECT_EQ(name_of(23), "PWM_HIGH_US");
 }
 
 TEST(ParamNames, FindRoundTrips)
@@ -147,7 +150,7 @@ TEST(Programming, RejectsOutOfRangeValues)
   EXPECT_FALSE(c.propose(4, 20001, candidate));
   EXPECT_FALSE(c.propose(4, 70000, candidate));
   EXPECT_TRUE(c.propose(4, 20000, candidate));
-  EXPECT_FALSE(c.propose(20, 1, candidate)); // there is no setting 20
+  EXPECT_FALSE(c.propose(20, 1, candidate)); // there is no setting 20 (the virtual parameters are not stored)
 }
 
 TEST(Programming, ZeroRestoresTheDefault)

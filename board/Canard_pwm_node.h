@@ -11,6 +11,7 @@
 #include <Pwm_config.h>
 #include <Stm_fdcan.h>
 #include <Stm_pca9685.h>
+#include <Stm_pwm_meter.h>
 #include <Stm_settings.h>
 
 extern "C"
@@ -68,6 +69,7 @@ public:
       service_motor_timeout(now_ms);
       service_node_status(now_ms);
       service_tx();
+      service_measure(); // after service_tx(), so the reply that requested it has gone out
     }
   }
 
@@ -422,6 +424,58 @@ private:
     send_response(request, ETHERFORM_ECHO_RESPONSE_SIGNATURE, ETHERFORM_ECHO_RESPONSE_ID, buf, len);
   }
 
+  // ---- bench measurement of the PWM outputs ----
+  //
+  // Writing 1 to 4 to the PWM_MEASURE parameter times output 0 to 3 with the MCU's timer (see Stm_pwm_meter.h) while that
+  // output carries the 1000 us zero throttle pulse, and PWM_PERIOD_US / PWM_HIGH_US hold the result. It is used to calibrate
+  // PWM_PRESCALE at bring-up. It drives an output, so it is refused once the node has received a command since it started,
+  // and while the PCA9685 is not answering. The output goes back to what it was afterwards. PWM_MEASURE reads back 0 (never
+  // run), 1 (busy), 2 (done) or 3 (failed or refused).
+  static constexpr int64_t measure_none = 0;
+  static constexpr int64_t measure_busy = 1;
+  static constexpr int64_t measure_done = 2;
+  static constexpr int64_t measure_failed = 3;
+
+  void request_measure(int64_t wanted)
+  {
+    if (wanted < 1 || wanted > 4 || measure_state == measure_busy)
+    {
+      return;
+    }
+    const bool commanded = pwm_debug_stats.motor_messages + pwm_debug_stats.servo_messages > 0;
+    if (commanded || !pca.ok())
+    {
+      measure_state = measure_failed;
+      return;
+    }
+    measure_request = (uint8_t)wanted;
+    measure_state = measure_busy;
+  }
+
+  void service_measure()
+  {
+    if (measure_request == 0)
+    {
+      return;
+    }
+    const uint8_t output = measure_request - 1;
+    measure_request = 0;
+    const uint16_t previous = pca.last_count(output);
+    pca.set_count(output, Pwm::pulse_to_count(Pwm::arming_pulse_us));
+    const Stm_pwm_meter::Result result = meter.measure(output);
+    if (previous == Stm_pca9685::off)
+    {
+      pca.set_off(output);
+    }
+    else
+    {
+      pca.set_count(output, previous);
+    }
+    measured_period_us = result.period_us;
+    measured_high_us = result.high_us;
+    measure_state = result.ok ? measure_done : measure_failed;
+  }
+
   // ---- parameters ----
   //
   // Parameter 0 is NODE_ID (0 means "not set": the default applies), stored in flash and used from the next start.
@@ -452,6 +506,15 @@ private:
         }
       }
       return;
+    }
+    if (index == Pwm::param_measure)
+    {
+      request_measure(wanted);
+      return;
+    }
+    if (index > Pwm::arm_index + 1)
+    {
+      return; // PWM_PERIOD_US and PWM_HIGH_US are read only
     }
     uint16_t candidate[Pwm::setting_count];
     if (config.propose(index - 1, wanted, candidate) && Stm_settings::write_pwm_ranges(candidate))
@@ -493,19 +556,37 @@ private:
       {
         assign_param((uint32_t)index, req.value.integer_value);
       }
-      const bool is_node_id = index == 0;
-      const uint32_t setting = (uint32_t)index - 1;
+      int64_t value;
+      int64_t default_value = 0;
+      int64_t max_value;
+      if (index == 0)
+      {
+        value = stored_node_id();
+        max_value = node_id_param_max;
+      }
+      else if ((uint32_t)index >= Pwm::param_measure)
+      {
+        value = index == (int)Pwm::param_measure ? measure_state
+                : (index == (int)Pwm::param_period ? measured_period_us : measured_high_us);
+        max_value = index == (int)Pwm::param_measure ? 4 : 65535;
+      }
+      else
+      {
+        const uint32_t setting = (uint32_t)index - 1;
+        value = (int64_t)config.effective(setting);
+        default_value = (int64_t)Pwm::default_setting(setting);
+        max_value = setting == Pwm::timeout_index  ? Pwm::timeout_param_max
+                    : setting == Pwm::action_index ? 1
+                    : setting == Pwm::prescale_index ? Pwm::prescale_param_max
+                    : setting == Pwm::arm_index     ? Pwm::arm_param_max
+                                                    : Pwm::limit_param_max;
+      }
       res.value.union_tag = UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE;
-      res.value.integer_value = is_node_id ? stored_node_id() : (int64_t)config.effective(setting);
+      res.value.integer_value = value;
       res.default_value.union_tag = UAVCAN_PROTOCOL_PARAM_VALUE_INTEGER_VALUE;
-      res.default_value.integer_value = is_node_id ? 0 : (int64_t)Pwm::default_setting(setting);
+      res.default_value.integer_value = default_value;
       res.max_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
-      res.max_value.integer_value = is_node_id ? node_id_param_max
-                                    : (setting == Pwm::timeout_index ? Pwm::timeout_param_max
-                                       : (setting == Pwm::action_index ? 1
-                                       : (setting == Pwm::prescale_index ? Pwm::prescale_param_max
-                                                                          : (setting == Pwm::arm_index ? Pwm::arm_param_max
-                                                                                                       : Pwm::limit_param_max))));
+      res.max_value.integer_value = max_value;
       res.min_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.min_value.integer_value = 0;
       char name[Pwm::param_name_max];
@@ -663,6 +744,7 @@ private:
   const uint32_t actuator_id;
   Stm_fdcan fdcan;
   Stm_pca9685 pca;
+  Stm_pwm_meter meter;
   Pwm::Config config;
 
   CanardInstance canard;
@@ -678,5 +760,9 @@ private:
   uint32_t last_motor_msg_ms{0};
   bool motor_outputs_active{false};
   bool arming_active{false};
+  uint8_t measure_request{0};
+  int64_t measure_state{0};
+  int64_t measured_period_us{0};
+  int64_t measured_high_us{0};
   uint32_t arming_end_ms{0};
 };

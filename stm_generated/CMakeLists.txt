@@ -47,9 +47,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/Core/Inc
 )
 
-# Minimum delay between transmitted CAN frames in ms (0 = none). A test aid for slow USB-CAN adapters whose serial
-# link drops back-to-back frames.
-set(CAN_TX_MIN_SPACING_MS 0 CACHE STRING "Minimum ms between transmitted CAN frames")
+# Minimum delay between transmitted CAN frames in ms (0 = none). The serial USB-CAN adapters used for bring-up and
+# testing lose the end of a burst of frames (a 7 frame parameter reply came back cut short every time), so frames are
+# spaced 1 ms apart. NodeStatus is a single frame and parameter or GetNodeInfo replies are rare, so this costs nothing
+# on a real bus.
+set(CAN_TX_MIN_SPACING_MS 1 CACHE STRING "Minimum ms between transmitted CAN frames")
 if(CAN_TX_MIN_SPACING_MS GREATER 0)
   target_compile_definitions(${PROJECT_NAME} PRIVATE CAN_TX_MIN_SPACING_MS=${CAN_TX_MIN_SPACING_MS})
 endif()

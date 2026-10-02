@@ -47,8 +47,13 @@ constexpr uint32_t pwm_period_us = 20000; // 50 Hz
 constexpr uint32_t pwm_counts = 4096;     // PCA9685 resolution
 constexpr float motor_full_scale = 8192.f;
 
-// Parameter names: NODE_ID is parameter 0, the settings above are parameters 1 to 20
-constexpr uint32_t param_count = 1 + arm_index + 1;
+// Parameter names: NODE_ID is parameter 0, the stored settings above are parameters 1 to 20, and three more are "virtual"
+// (not stored): a bench measurement of the PWM outputs. Writing 1 to 4 to PWM_MEASURE measures output 0 to 3 (its state reads
+// back: 0 none yet, 1 busy, 2 done, 3 failed or refused); PWM_PERIOD_US and PWM_HIGH_US then hold the result.
+constexpr uint32_t param_measure = 1 + arm_index + 1;
+constexpr uint32_t param_period = param_measure + 1;
+constexpr uint32_t param_high = param_measure + 2;
+constexpr uint32_t param_count = param_high + 1;
 constexpr size_t param_name_max = 21; // "MOTOR_TIMEOUT_ACTION" and the terminator
 
 // Writes the name of parameter `index` (0 = NODE_ID) into buf (param_name_max bytes). Returns false if there is no
@@ -64,6 +69,21 @@ inline bool param_name(uint32_t index, char *buf)
   if (index >= param_count)
   {
     return false;
+  }
+  if (index == param_measure)
+  {
+    strcpy(buf, "PWM_MEASURE");
+    return true;
+  }
+  if (index == param_period)
+  {
+    strcpy(buf, "PWM_PERIOD_US");
+    return true;
+  }
+  if (index == param_high)
+  {
+    strcpy(buf, "PWM_HIGH_US");
+    return true;
   }
   const uint32_t i = index - 1;
   if (i == timeout_index)
