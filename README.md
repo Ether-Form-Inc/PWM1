@@ -79,6 +79,17 @@ tools/can_pwm_param.py 10 set MOTOR_TIMEOUT_MS 2000   # motor mode timeout, ms
 tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID and the motor timeout)
 ```
 
+## Commanding outputs by hand
+`tools/pwm_command.py` holds output values until Ctrl-C, for bench testing. **Remove the propellers before commanding motors.** Outputs are numbered 0 to 3; add `--offset N` for a board with a J5 actuator ID offset.
+
+```bash
+tools/pwm_command.py --motor 0=300 2=300          # motor mode: RawCommand values 0 to 8191 on outputs 0 and 2
+tools/pwm_command.py --motor all=0                # all four outputs at zero throttle
+tools/pwm_command.py --servo-us 1=1500 3=1200     # servo mode: pulse widths in us (exact up to 2048)
+tools/pwm_command.py --servo-unitless 0=-0.5      # servo mode: -1 to +1 mapped onto the servo limits
+```
+Before sending it listens to the bus for 1.5 s and refuses to start if another command sender is active (a leftover script or a flight controller), because two senders interleave their values on the outputs; `--force` overrides. It reads the node's mode from its NodeStatus priority and warns if you send the wrong kind of command (the node ignores it). Motor values above 2048 (about 25 %) need `--allow-high`, there is a 3 s countdown (`--no-wait` skips it), and on exit motors are sent 0 while servos keep their last value (a servo has no safe stop position). `--duration SECONDS` stops by itself.
+
 ## Motor ramp test
 `tools/motor_ramp.py` ramps the RawCommand value 0 -> max -> 0 on the outputs through the serial USB-CAN adapter (motor mode needs J5 row 1 open; requires `pip install dronecan pyserial`). Remove the propellers first. For example `tools/motor_ramp.py --max 1600` is a gentle ramp to about 20 %, and `--max 8191` is the default maximum. With the J5 row 1 jumper fitted (servo mode) add `--servo` to send ArrayCommand instead, as UNITLESS (`--type unitless`, the default) or PWM (`--type pwm`) commands; the same ramp then gives 1000 us at 0 and 2000 us at full scale with the default limits.
 
@@ -125,6 +136,7 @@ The scripts in `tools/` talk to the board through a serial USB-CAN adapter (`pip
 | `flash_and_check.py` | Program, verify and check a board over SWD and CAN (also run by `make flash`); set or clear the node ID or all settings |
 | `can_pwm_param.py` | List, read and set the parameters (node ID, pulse width limits, motor timeout, calibration), time an output (`measure`), erase them, restart the node |
 | `can_getnodeinfo.py` | Read GetNodeInfo (name, version, health) from a node |
+| `pwm_command.py` | Hold output values by sending motor (RawCommand) or servo (ArrayCommand) commands until Ctrl-C |
 | `motor_ramp.py` | Ramp the outputs 0 to full scale and back, in motor or servo mode, for bench tests (remove the propellers first) |
 
 ## Firmware version

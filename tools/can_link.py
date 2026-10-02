@@ -45,6 +45,7 @@ class CanLink:
         self.manager = transport.TransferManager()
         self.buf = bytearray()
         self.transfer_id = int(time.time() * 7) & 31
+        self.broadcast_ids = {}
 
     def close(self):
         self.port.close()
@@ -173,3 +174,37 @@ class CanLink:
                                 "received a command since it started, or if the PCA9685 is not answering)" % output)
             time.sleep(0.3)
         raise LinkError("measurement of output %d did not finish" % output)
+
+    # ---- raw bus access (used by pwm_command.py) ----
+    def read_frames(self, seconds):
+        """Listens for `seconds` and returns the raw frames seen as a list of (CAN id, data bytes)."""
+        self.port.reset_input_buffer()
+        self.buf = bytearray()
+        deadline = time.time() + seconds
+        frames = []
+        while time.time() < deadline:
+            self.buf += self.port.read(4096)
+            i = 0
+            while i < len(self.buf):
+                if self.buf[i] == 0xAA and i + 1 < len(self.buf) and (self.buf[i + 1] & 0xC0) == 0xC0:
+                    end = i + 6 + (self.buf[i + 1] & 15)
+                    if end >= len(self.buf):
+                        break
+                    if self.buf[end] == 0x55:
+                        frames.append((int.from_bytes(self.buf[i + 2:i + 6], "little"), bytes(self.buf[i + 6:end])))
+                        i = end + 1
+                        continue
+                i += 1
+            del self.buf[:i]
+        return frames
+
+    def broadcast(self, payload, priority=8):
+        """Sends a message (a broadcast, not addressed to a node), for example a RawCommand."""
+        key = type(payload).__name__
+        tid = self.broadcast_ids.get(key, 0)
+        self.broadcast_ids[key] = (tid + 1) & 31
+        tr = transport.Transfer(transfer_id=tid, source_node_id=SELF, payload=payload, transfer_priority=priority)
+        for frame in tr.to_frames():
+            self.port.write(bytes([0xAA, 0xE0 | len(frame.bytes)]) + frame.message_id.to_bytes(4, "little")
+                            + bytes(frame.bytes) + b"\x55")
+            time.sleep(0.003)   # the adapter drops frames sent back to back
