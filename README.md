@@ -94,6 +94,8 @@ The version is set in the top level `CMakeLists.txt` (`FIRMWARE_VERSION_MAJOR/MI
 * **Over CAN:** `uavcan.protocol.GetNodeInfo` reports the major and minor version and the commit (`tools/can_getnodeinfo.py` prints them).
 * **In flash:** a 48 byte block (`board/Fw_info.h`) sits right after the vector table, so the version can be read over SWD even if the board is not on a CAN bus. `tools/flash_and_check.py` shows the firmware on the board and the firmware it is about to program, and fails if the board reports something else after programming.
 
+GetNodeInfo also reports the hardware version: the major number is the board revision (Rev A = 1, Rev B = 2, and so on), set by `hw_version_major` in `board/Canard_pwm_node.h`. The board cannot detect its revision at run time, so it is fixed for the revision the firmware is built for (currently Rev B).
+
 Bump the version in `CMakeLists.txt` for every release; a build from a tree with uncommitted changes carries `-dirty`, so a release should be built from a clean checkout.
 
 ## Source layout

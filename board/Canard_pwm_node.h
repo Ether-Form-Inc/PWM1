@@ -80,6 +80,9 @@ private:
   static constexpr uint32_t cleanup_period_ms = 1000;
   static constexpr uint32_t bus_off_retry_ms = 100;
   static constexpr uint32_t restart_timeout_ms = 500;
+  // Hardware version reported in GetNodeInfo: the board revision as a number (Rev A = 1, Rev B = 2, ...). The board
+  // cannot tell its revision at run time, so this is set for the revision the firmware is built for.
+  static constexpr uint8_t hw_version_major = 2; // Rev B
   static constexpr int64_t node_id_param_max = 127;
   // NodeStatus priority: motor mode uses the highest-but-one priority class the firmware has always used, servo 20
   static constexpr uint8_t priority_motor = 1;
@@ -355,7 +358,7 @@ private:
       res.software_version.optional_field_flags = UAVCAN_PROTOCOL_SOFTWAREVERSION_OPTIONAL_FIELD_FLAG_VCS_COMMIT;
       res.software_version.vcs_commit = FW_VCS_COMMIT;
     }
-    res.hardware_version.major = 0;
+    res.hardware_version.major = hw_version_major;
 
     // 96 bit STM32 unique ID, zero padded to the 128 bits DroneCAN wants
     const uint32_t *uid = reinterpret_cast<const uint32_t *>(0x1FFF7590UL);
