@@ -12,11 +12,14 @@ node = int(sys.argv[2]) if len(sys.argv) > 2 else 100
 SELF = 50
 SIGNATURE = 0xEE468A8121C46A9E
 
-s = serial.Serial(None, 2000000, timeout=0.05, stopbits=serial.STOPBITS_TWO)
+s = serial.Serial(None, 2000000, timeout=0.05, stopbits=serial.STOPBITS_TWO, exclusive=True)
 s.port = dev
 s.dtr = True
 s.rts = True
-s.open()
+try:
+    s.open()
+except serial.SerialException as e:
+    sys.exit("cannot use %s: %s (is another program using the adapter?)" % (dev, e))
 cfg = bytearray([0xAA, 0x55, 0x12, 0x01, 0x01] + [0] * 8 + [0x00, 0x01, 0, 0, 0, 0])
 cfg.append(sum(cfg[2:]) & 0xFF)
 s.write(cfg)

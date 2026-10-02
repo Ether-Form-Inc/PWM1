@@ -43,11 +43,15 @@ args = ap.parse_args()
 if not 0 <= args.max <= 8191 or not 0 <= args.end <= args.max or any(o not in range(4) for o in args.outputs):
     sys.exit("--max must be 0-8191, --end 0 to --max, and --outputs 0-3")
 
-port = serial.Serial(None, 2000000, timeout=0.01, stopbits=serial.STOPBITS_TWO)
+port = serial.Serial(None, 2000000, timeout=0.01, stopbits=serial.STOPBITS_TWO, exclusive=True)
 port.port = args.device
 port.dtr = True
 port.rts = True
-port.open()
+try:
+    port.open()
+except serial.SerialException as e:
+    sys.exit("cannot use %s: %s. If another program (a leftover motor_ramp.py, pwm_command.py, ...) has the adapter "
+             "open, stop it first." % (args.device, e))
 cfg = bytearray([0xAA, 0x55, 0x12, 0x01, 0x01] + [0] * 8 + [0x00, 0x01, 0, 0, 0, 0])  # 1 Mbit/s
 cfg.append(sum(cfg[2:]) & 0xFF)
 port.write(cfg)

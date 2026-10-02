@@ -15,8 +15,10 @@ the board; --offset N adds the board's J5 actuator ID offset (the DroneCAN actua
 Options: --duration SECONDS, --rate HZ (default 20), --offset N, --allow-high (motor values above 2048, about 25 %),
 --force (send even if another sender is on the bus), --no-wait.
 
-Safety: before sending it listens to the bus for about 1.5 s and refuses to start if another command sender is active
-(two senders interleave their values on the outputs), and it warns if the node is in the other mode. Motor values above
+Safety: the adapter is opened exclusively, so a second program using it (a leftover motor_ramp.py, another pwm_command.py)
+is refused. Before sending it also listens to the bus for about 1.5 s and refuses to start if another node is sending
+commands (a flight controller or a second adapter; two senders interleave their values on the outputs), and it warns if
+the node is in the other mode. Motor values above
 2048 need --allow-high. A 3 s countdown gives you time to stop. On exit, motors are sent 0 for one second; servos keep the
 last value, since a servo has no safe stop position, so send the position you want last.
 """
@@ -137,16 +139,19 @@ def inspect_bus(frames, our_id=50):
 
 def main():
     args = parse_args()
-    from can_link import CanLink
-    link = CanLink(args.device, NODE)
+    from can_link import CanLink, LinkError
+    try:
+        link = CanLink(args.device, NODE)
+    except LinkError as e:
+        sys.exit(str(e))
     try:
         print("listening to the bus for 1.5 s ...", flush=True)
         senders, priority = inspect_bus(link.read_frames(1.5))
         if senders and not args.force:
             who = ", ".join("%s from node %d" % ("RawCommand" if t == RAW_COMMAND_ID else "ArrayCommand", s)
                             for t, s in sorted(senders))
-            sys.exit("another command sender is active on the bus (%s). Stop it first (a leftover pwm_command.py, "
-                     "motor_ramp.py or flight controller), or use --force." % who)
+            sys.exit("another command sender is active on the bus (%s). Stop it first (a flight controller or a second "
+                     "adapter), or use --force." % who)
         if priority is None:
             print("note: no NodeStatus from node %d was seen, so the board may not be connected" % NODE)
         else:

@@ -32,11 +32,17 @@ class CanLink:
     def __init__(self, device="/dev/ttyUSB0", node=10, attempt_timeout=0.5):
         self.node = node
         self.attempt_timeout = attempt_timeout
-        self.port = serial.Serial(None, 2000000, timeout=0.02, stopbits=serial.STOPBITS_TWO)
+        # exclusive: a second program using the adapter at the same time would interleave its frames with ours (the
+        # adapter does not receive its own transmissions, so this cannot be detected from the bus)
+        self.port = serial.Serial(None, 2000000, timeout=0.02, stopbits=serial.STOPBITS_TWO, exclusive=True)
         self.port.port = device
         self.port.dtr = True   # the adapter only streams while DTR and RTS are asserted
         self.port.rts = True
-        self.port.open()
+        try:
+            self.port.open()
+        except serial.SerialException as e:
+            raise LinkError("cannot use %s: %s. If another program (a leftover motor_ramp.py, pwm_command.py, ...) has "
+                            "the adapter open, stop it first." % (device, e))
         cfg = bytearray([0xAA, 0x55, 0x12, 0x01, 0x01] + [0] * 8 + [0x00, 0x01, 0, 0, 0, 0])  # 1 Mbit/s, normal
         cfg.append(sum(cfg[2:]) & 0xFF)
         self.port.write(cfg)
