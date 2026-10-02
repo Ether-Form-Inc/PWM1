@@ -51,6 +51,7 @@ public:
     canardSetLocalNodeID(&canard, node_id);
     pca.set_prescale(config.prescale());
     pca.init(); // a chip that does not answer is retried by service_pca()
+    start_arming(HAL_GetTick());
 
     for (;;)
     {
@@ -62,6 +63,7 @@ public:
       service_bus_state(now_ms);
       service_restart(now_ms);
       service_pca(now_ms);
+      service_arming(now_ms);
       service_motor_timeout(now_ms);
       service_node_status(now_ms);
       service_tx();
@@ -242,6 +244,10 @@ private:
       return;
     }
     pwm_debug_stats.motor_messages = pwm_debug_stats.motor_messages + 1;
+    if (arming_active)
+    {
+      return; // still arming the ESCs
+    }
     // Any RawCommand message restarts the motor timeout
     last_motor_msg_ms = HAL_GetTick();
     motor_outputs_active = true;
@@ -275,6 +281,34 @@ private:
       }
       motor_outputs_active = false;
       pwm_debug_stats.motor_timeouts = pwm_debug_stats.motor_timeouts + 1;
+    }
+  }
+
+  // Motor mode start-up arming: for MOTOR_ARM_MS the outputs hold the zero throttle pulse so an ESC can arm, then they
+  // idle at the minimum pulse width until commands arrive. Commands that arrive meanwhile are ignored.
+  void start_arming(uint32_t now_ms)
+  {
+    if (is_servo || config.arm_ms() == 0)
+    {
+      return;
+    }
+    for (uint8_t c = 0; c < Pwm::num_outputs; c++)
+    {
+      pca.set_count(c, Pwm::pulse_to_count(Pwm::arming_pulse_us));
+    }
+    arming_active = true;
+    arming_end_ms = now_ms + config.arm_ms();
+  }
+
+  void service_arming(uint32_t now_ms)
+  {
+    if (arming_active && (int32_t)(now_ms - arming_end_ms) >= 0)
+    {
+      arming_active = false;
+      for (uint8_t c = 0; c < Pwm::num_outputs; c++)
+      {
+        pca.set_count(c, Pwm::pulse_to_count(config.motor_us(c, 0)));
+      }
     }
   }
 
@@ -384,8 +418,9 @@ private:
   // ---- parameters ----
   //
   // Parameter 0 is NODE_ID (0 means "not set": the default applies), stored in flash and used from the next start.
-  // Parameters 1 to 19 are the pulse width limits (us), the motor timeout (ms), the timeout action and the PCA9685
-  // prescale of Pwm::Config, applied at once.
+  // Parameters 1 to 20 are the pulse width limits (us), the motor timeout (ms), the timeout action, the PCA9685
+  // prescale and the motor arming time of Pwm::Config. All apply at once except the arming time, which is used at
+  // start-up.
   // Writing 0 to a parameter restores its default.
   static int64_t stored_node_id()
   {
@@ -462,7 +497,8 @@ private:
                                     : (setting == Pwm::timeout_index ? Pwm::timeout_param_max
                                        : (setting == Pwm::action_index ? 1
                                        : (setting == Pwm::prescale_index ? Pwm::prescale_param_max
-                                                                          : Pwm::limit_param_max)));
+                                                                          : (setting == Pwm::arm_index ? Pwm::arm_param_max
+                                                                                                       : Pwm::limit_param_max))));
       res.min_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.min_value.integer_value = 0;
       char name[Pwm::param_name_max];
@@ -634,4 +670,6 @@ private:
   uint32_t restart_requested_ms{0};
   uint32_t last_motor_msg_ms{0};
   bool motor_outputs_active{false};
+  bool arming_active{false};
+  uint32_t arming_end_ms{0};
 };

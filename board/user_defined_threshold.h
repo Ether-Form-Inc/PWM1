@@ -48,3 +48,7 @@ static constexpr uint32_t default_motor_timeout_action{0};
 // internal oscillator is exactly 25 MHz, but that oscillator is only accurate to about +-10 %, so the PWM_PRESCALE
 // parameter lets each board be calibrated against a measured period.
 static constexpr uint32_t default_pwm_prescale{121};
+
+// Motor mode start-up arming time (ms). If not 0, the motor outputs hold the zero throttle pulse (1000 us) for this long
+// after power-up, so an ESC can arm, and then idle at the configured minimum pulse width. 0 disables it.
+static constexpr uint32_t default_motor_arm_ms{0};

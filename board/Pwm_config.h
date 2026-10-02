@@ -13,6 +13,8 @@
 //   16     motor mode command timeout (ms)
 //   17     what the timeout does: 0 = switch the outputs off, 1 = hold the minimum pulse width (zero throttle)
 //   18     PCA9685 PRE_SCALE register (3 to 255), which sets the PWM period; for calibrating the chip's oscillator
+//   19     motor mode arming time at start-up (ms): the outputs hold the zero throttle pulse for this long, then idle at
+//          the minimum pulse width (0 = off)
 // The stored array is padded to 20 halfwords because flash is written in 8 byte units.
 
 #include <user_defined_threshold.h>
@@ -28,7 +30,8 @@ constexpr uint32_t limit_count = 16;   // pulse width limits
 constexpr uint32_t timeout_index = 16; // motor timeout
 constexpr uint32_t action_index = 17;  // motor timeout action
 constexpr uint32_t prescale_index = 18; // PCA9685 prescale
-constexpr uint32_t setting_count = 20; // stored halfwords (19 used)
+constexpr uint32_t arm_index = 19;      // motor arming time
+constexpr uint32_t setting_count = 20; // stored halfwords (all used)
 constexpr uint16_t unset = 0xFFFF;
 
 constexpr int64_t limit_param_max = 20000; // us, one 50 Hz period
@@ -36,13 +39,16 @@ constexpr int64_t timeout_param_min = 100; // ms, the smallest value accepted (0
 constexpr int64_t timeout_param_max = 60000;
 constexpr int64_t prescale_param_min = 3; // the smallest PRE_SCALE the PCA9685 accepts
 constexpr int64_t prescale_param_max = 255;
+constexpr int64_t arm_param_min = 100; // ms, the smallest value accepted (0 = off)
+constexpr int64_t arm_param_max = 10000;
+constexpr uint16_t arming_pulse_us = 1000; // the zero throttle pulse held while arming
 
 constexpr uint32_t pwm_period_us = 20000; // 50 Hz
 constexpr uint32_t pwm_counts = 4096;     // PCA9685 resolution
 constexpr float motor_full_scale = 8192.f;
 
-// Parameter names: NODE_ID is parameter 0, the settings above are parameters 1 to 19
-constexpr uint32_t param_count = 1 + prescale_index + 1;
+// Parameter names: NODE_ID is parameter 0, the settings above are parameters 1 to 20
+constexpr uint32_t param_count = 1 + arm_index + 1;
 constexpr size_t param_name_max = 21; // "MOTOR_TIMEOUT_ACTION" and the terminator
 
 // Writes the name of parameter `index` (0 = NODE_ID) into buf (param_name_max bytes). Returns false if there is no
@@ -73,6 +79,11 @@ inline bool param_name(uint32_t index, char *buf)
   if (i == prescale_index)
   {
     strcpy(buf, "PWM_PRESCALE");
+    return true;
+  }
+  if (i == arm_index)
+  {
+    strcpy(buf, "MOTOR_ARM_MS");
     return true;
   }
   strcpy(buf, prefixes[i / 4]);
@@ -111,6 +122,10 @@ inline uint32_t default_setting(uint32_t i)
   {
     return default_pwm_prescale;
   }
+  if (i == arm_index)
+  {
+    return default_motor_arm_ms;
+  }
   return tables[i / 4][i % 4];
 }
 
@@ -132,6 +147,10 @@ inline bool stored_value_ok(uint32_t i, uint16_t v)
   if (i == prescale_index)
   {
     return v >= prescale_param_min && v <= prescale_param_max;
+  }
+  if (i == arm_index)
+  {
+    return v >= arm_param_min && v <= arm_param_max;
   }
   return v >= 1 && v <= limit_param_max;
 }
@@ -167,7 +186,7 @@ public:
     memcpy(m_stored, stored, sizeof(m_stored));
     for (uint32_t i = 0; i < setting_count; i++)
     {
-      if (i > prescale_index || !stored_value_ok(i, m_stored[i]) || m_stored[i] == 0)
+      if (i > arm_index || !stored_value_ok(i, m_stored[i]) || m_stored[i] == 0)
       {
         m_stored[i] = unset;
       }
@@ -198,7 +217,7 @@ public:
   // change anything.
   bool propose(uint32_t i, int64_t wanted, uint16_t (&candidate)[setting_count]) const
   {
-    if (i > prescale_index || wanted < 0 || wanted > 0xFFFE || (wanted != 0 && !stored_value_ok(i, (uint16_t)wanted)))
+    if (i > arm_index || wanted < 0 || wanted > 0xFFFE || (wanted != 0 && !stored_value_ok(i, (uint16_t)wanted)))
     {
       return false;
     }
@@ -217,6 +236,11 @@ public:
   uint32_t timeout_ms() const
   {
     return m_timeout_ms;
+  }
+
+  uint32_t arm_ms() const
+  {
+    return m_arm_ms;
   }
 
   uint8_t prescale() const
@@ -314,6 +338,7 @@ private:
     m_timeout_ms = effective(timeout_index, m_stored);
     m_timeout_action = effective(action_index, m_stored);
     m_prescale = effective(prescale_index, m_stored);
+    m_arm_ms = effective(arm_index, m_stored);
   }
 
   uint16_t m_stored[setting_count];
@@ -322,5 +347,6 @@ private:
   uint32_t m_timeout_ms{default_motor_timeout_ms};
   uint32_t m_timeout_action{default_motor_timeout_action};
   uint32_t m_prescale{default_pwm_prescale};
+  uint32_t m_arm_ms{default_motor_arm_ms};
 };
 } // namespace Pwm

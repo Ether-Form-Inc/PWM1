@@ -18,11 +18,11 @@ std::string name_of(uint32_t index)
 }
 } // namespace
 
-TEST(ParamNames, ThereAreTwenty)
+TEST(ParamNames, ThereAreTwentyOne)
 {
-  EXPECT_EQ(Pwm::param_count, 20u);
+  EXPECT_EQ(Pwm::param_count, 21u);
   char buf[Pwm::param_name_max];
-  EXPECT_FALSE(Pwm::param_name(20, buf));
+  EXPECT_FALSE(Pwm::param_name(21, buf));
 }
 
 TEST(ParamNames, Order)
@@ -37,6 +37,7 @@ TEST(ParamNames, Order)
   EXPECT_EQ(name_of(17), "MOTOR_TIMEOUT_MS");
   EXPECT_EQ(name_of(18), "MOTOR_TIMEOUT_ACTION");
   EXPECT_EQ(name_of(19), "PWM_PRESCALE");
+  EXPECT_EQ(name_of(20), "MOTOR_ARM_MS");
 }
 
 TEST(ParamNames, FindRoundTrips)
@@ -146,7 +147,7 @@ TEST(Programming, RejectsOutOfRangeValues)
   EXPECT_FALSE(c.propose(4, 20001, candidate));
   EXPECT_FALSE(c.propose(4, 70000, candidate));
   EXPECT_TRUE(c.propose(4, 20000, candidate));
-  EXPECT_FALSE(c.propose(19, 1, candidate)); // there is no setting 19
+  EXPECT_FALSE(c.propose(20, 1, candidate)); // there is no setting 20
 }
 
 TEST(Programming, ZeroRestoresTheDefault)
@@ -227,7 +228,7 @@ TEST(Loading, StoredValuesAreUsedAndBadOnesIgnored)
   stored[5] = 1900;           // SERVO_MAX_US_1
   stored[8] = 30000;          // MOTOR_MIN_US_0, out of range: ignored
   stored[Pwm::timeout_index] = 2500;
-  stored[19] = 123;           // beyond the used settings: ignored
+  stored[19] = 50;            // MOTOR_ARM_MS below the 100 ms minimum: ignored
   Config c;
   c.load(stored);
   EXPECT_EQ(c.servo_min(1), 1100);
@@ -235,6 +236,7 @@ TEST(Loading, StoredValuesAreUsedAndBadOnesIgnored)
   EXPECT_EQ(c.motor_min(0), 1000);
   EXPECT_EQ(c.timeout_ms(), 2500u);
   EXPECT_EQ(c.stored()[19], Pwm::unset);
+  EXPECT_EQ(c.arm_ms(), 0u);
 }
 
 TEST(Loading, InconsistentLimitsGoBackToTheDefaults)
@@ -297,4 +299,33 @@ TEST(Prescale, DefaultsTo121AndIsProgrammable)
   ASSERT_TRUE(c.propose(Pwm::prescale_index, 0, candidate));
   c.commit(candidate);
   EXPECT_EQ(c.prescale(), 121);
+}
+
+TEST(Arming, IsOffByDefaultAndProgrammable)
+{
+  Config c;
+  EXPECT_EQ(c.arm_ms(), 0u);
+  uint16_t candidate[Pwm::setting_count];
+  EXPECT_FALSE(c.propose(Pwm::arm_index, 99, candidate));
+  EXPECT_FALSE(c.propose(Pwm::arm_index, 10001, candidate));
+  ASSERT_TRUE(c.propose(Pwm::arm_index, 2000, candidate));
+  c.commit(candidate);
+  EXPECT_EQ(c.arm_ms(), 2000u);
+  ASSERT_TRUE(c.propose(Pwm::arm_index, 0, candidate));
+  c.commit(candidate);
+  EXPECT_EQ(c.arm_ms(), 0u);
+}
+
+TEST(Arming, ThePulseIsZeroThrottleAndTheIdleIsTheMinimum)
+{
+  Config c;
+  uint16_t candidate[Pwm::setting_count];
+  for (uint32_t i = 8; i < 12; i++) // MOTOR_MIN_US_0..3 = 1025
+  {
+    ASSERT_TRUE(c.propose(i, 1025, candidate));
+    c.commit(candidate);
+  }
+  EXPECT_EQ(Pwm::arming_pulse_us, 1000);
+  EXPECT_EQ(c.motor_us(0, 0), 1025); // idle after arming
+  EXPECT_LT(Pwm::pulse_to_count(Pwm::arming_pulse_us), Pwm::pulse_to_count(c.motor_us(0, 0)));
 }

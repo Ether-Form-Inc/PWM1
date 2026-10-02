@@ -30,6 +30,9 @@ The PCA9685 generates the PWM from its internal oscillator, which is only accura
 
 then `tools/can_pwm_param.py 10 set PWM_PRESCALE <value>`. The change applies at once (the outputs pause for about a millisecond) and is kept across restarts. Writing 0 restores the default of 121.
 
+## Motor arming at start-up
+Many ESCs need to see the zero throttle pulse (1000 us) once before they arm, so a raised `MOTOR_MIN_US` would stop them arming. If `MOTOR_ARM_MS` is set (100 to 10000 ms, default 0 = off) the board, in motor mode, holds all four outputs at 1000 us for that long after power-up so the ESCs can arm, then idles them at the configured minimum pulse width (`MOTOR_MIN_US_0..3`) until commands arrive. RawCommand messages received during the arming time are ignored. The setting is read at start-up, so restart the node after changing it. Servo mode does not arm.
+
 ## Motor mode timeout
 In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 seconds all four PWM signals are switched off (held low, as after power-up). They resume with the next RawCommand. Servo mode has no timeout: each output keeps its last commanded pulse width.
 
