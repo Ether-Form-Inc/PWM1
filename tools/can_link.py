@@ -13,6 +13,10 @@ import collections
 import sys
 import time
 
+import _deps  # noqa: E402
+
+_deps.check()
+
 import dronecan
 import dronecan.transport as transport
 import serial

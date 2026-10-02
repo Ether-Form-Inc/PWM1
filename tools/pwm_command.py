@@ -26,6 +26,10 @@ import argparse
 import sys
 import time
 
+import _deps  # noqa: E402
+
+_deps.check()
+
 import dronecan
 
 NODE = 10

@@ -69,7 +69,7 @@ The pulse width limits that scale the commands are programmable over CAN, as par
 
 Values must be 1 to 20000 (one 50 Hz period). A change that would leave an output with a maximum that is not above its minimum is ignored, so when moving a range up, set the maximum first. PWM-type servo commands (command_type PWM) are limited to the same servo range, so a pulse width outside it is clamped to the minimum or maximum.
 
-The DroneCAN GUI tool can edit them, or use `tools/can_pwm_param.py` (needs `pip install dronecan pyserial` and a serial USB-CAN adapter):
+The DroneCAN GUI tool can edit them, or use `tools/can_pwm_param.py` (needs the Python environment for the tools and a serial USB-CAN adapter):
 
 ```bash
 tools/can_pwm_param.py 10 list                       # every parameter of node 10
@@ -91,7 +91,7 @@ tools/pwm_command.py --servo-unitless 0=-0.5      # servo mode: -1 to +1 mapped 
 The serial adapter is opened exclusively, so a second program using it (a leftover `motor_ramp.py` or `pwm_command.py`) is refused. Before sending it also listens to the bus for 1.5 s and refuses to start if another node is sending commands (a flight controller or a second adapter), because two senders interleave their values on the outputs; `--force` overrides that check. It reads the node's mode from its NodeStatus priority and warns if you send the wrong kind of command (the node ignores it). Motor values above 2048 (about 25 %) need `--allow-high`, there is a 3 s countdown (`--no-wait` skips it), and on exit motors are sent 0 while servos keep their last value (a servo has no safe stop position). `--duration SECONDS` stops by itself.
 
 ## Motor ramp test
-`tools/motor_ramp.py` ramps the RawCommand value 0 -> max -> 0 on the outputs through the serial USB-CAN adapter (motor mode needs J5 row 1 open; requires `pip install dronecan pyserial`). Remove the propellers first. For example `tools/motor_ramp.py --max 1600` is a gentle ramp to about 20 %, and `--max 8191` is the default maximum. With the J5 row 1 jumper fitted (servo mode) add `--servo` to send ArrayCommand instead, as UNITLESS (`--type unitless`, the default) or PWM (`--type pwm`) commands; the same ramp then gives 1000 us at 0 and 2000 us at full scale with the default limits.
+`tools/motor_ramp.py` ramps the RawCommand value 0 -> max -> 0 on the outputs through the serial USB-CAN adapter (motor mode needs J5 row 1 open; requires the Python environment for the tools). Remove the propellers first. For example `tools/motor_ramp.py --max 1600` is a gentle ramp to about 20 %, and `--max 8191` is the default maximum. With the J5 row 1 jumper fitted (servo mode) add `--servo` to send ArrayCommand instead, as UNITLESS (`--type unitless`, the default) or PWM (`--type pwm`) commands; the same ramp then gives 1000 us at 0 and 2000 us at full scale with the default limits.
 
 ## Fault handling
 * **PCA9685 (I2C):** I2C timeouts are 20 ms. If a write to the PCA9685 fails, the node reports NodeStatus health ERROR with vendor specific status code 1, skips further writes, and every second re-initializes the I2C peripheral and the PCA9685. When it answers again the health returns to OK and the outputs are restored to their last commanded state.
@@ -107,11 +107,11 @@ J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can 
 Writing flash stops the processor for a few tens of milliseconds, so do not change the ID while the actuators are in use.
 
 ## Bring-up of a new board
-`tools/bring_up.py` sets up a board in one command. Connect an ST-LINK to J3, power the board (5 V on J1), and connect a serial USB-CAN adapter to the CAN bus (terminated), then run it with the Python that has `dronecan` and `pyserial`:
+`tools/bring_up.py` sets up a board in one command. Connect an ST-LINK to J3, power the board (5 V on J1), and connect a serial USB-CAN adapter to the CAN bus (terminated), then run it with the virtual environment's Python (see Python environment for the tools):
 
 ```bash
-tools/bring_up.py                                   # programs the newest build
-tools/bring_up.py --elf path/to/can_pwm_firmware.elf
+.venv/bin/python tools/bring_up.py                 # programs the newest build
+.venv/bin/python tools/bring_up.py --elf path/to/can_pwm_firmware.elf
 ```
 
 It takes about 25 s and does, in order:
@@ -127,8 +127,19 @@ It takes about 25 s and does, in order:
 
 The calibration uses the MCU's internal 16 MHz oscillator as the time reference (about +-1 %), and the prescale changes the period in steps of about 0.8 %, so the calibrated period is within about 1 % of 20 ms. The measurement is a bench feature: the node refuses it once it has received a command since it started, because it drives an output with the idle pulse while it measures. `tools/can_pwm_param.py 10 measure 0` runs it by hand.
 
+## Python environment for the tools
+The tools in `tools/` need two Python packages, `dronecan` and `pyserial`. The system Python on Ubuntu refuses `pip install`, so install them once into a virtual environment in the repository folder (git-ignored) and run the tools with that Python:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r tools/requirements.txt
+.venv/bin/python tools/pwm_command.py --help
+.venv/bin/python tools/bring_up.py
+```
+The examples in this README write `tools/xxx.py`: either activate the environment once per terminal (`source .venv/bin/activate`, after which `tools/xxx.py` uses it), or run them as `.venv/bin/python tools/xxx.py`. If a package is missing, the tools say so and print these commands. (`flash_and_check.py` and `can_getnodeinfo.py` only need `pyserial`, which the system Python usually has. The firmware build also creates its own virtual environment in the build folder for generating the message code; it works for the tools too, but is deleted with the build folder.)
+
 ## Python tools
-The scripts in `tools/` talk to the board through a serial USB-CAN adapter (`pip install dronecan pyserial`) or an ST-LINK:
+The scripts in `tools/` talk to the board through a serial USB-CAN adapter (see Python environment for the tools) or an ST-LINK:
 
 | Script | Purpose |
 |--------|---------|
