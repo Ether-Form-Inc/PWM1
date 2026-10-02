@@ -39,3 +39,7 @@ static constexpr uint16_t maximum_motor_us[4] = {maximum_motor_us_1, maximum_mot
 
 // In motor mode the PWM outputs are switched off if no RawCommand arrives for this long (ms)
 static constexpr uint32_t default_motor_timeout_ms{5000};
+
+// What the motor mode timeout does to the outputs: 0 = switch the PWM signal off, 1 = hold the minimum pulse width
+// (zero throttle), which keeps an ESC armed
+static constexpr uint32_t default_motor_timeout_action{0};

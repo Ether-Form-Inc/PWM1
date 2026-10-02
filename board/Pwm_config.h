@@ -11,6 +11,7 @@
 //   8..11  motor minimum pulse width (us)
 //   12..15 motor maximum pulse width (us)
 //   16     motor mode command timeout (ms)
+//   17     what the timeout does: 0 = switch the outputs off, 1 = hold the minimum pulse width (zero throttle)
 // The stored array is padded to 20 halfwords because flash is written in 8 byte units.
 
 #include <user_defined_threshold.h>
@@ -24,7 +25,8 @@ namespace Pwm
 constexpr uint32_t num_outputs = 4;
 constexpr uint32_t limit_count = 16;   // pulse width limits
 constexpr uint32_t timeout_index = 16; // motor timeout
-constexpr uint32_t setting_count = 20; // stored halfwords (17 used)
+constexpr uint32_t action_index = 17;  // motor timeout action
+constexpr uint32_t setting_count = 20; // stored halfwords (18 used)
 constexpr uint16_t unset = 0xFFFF;
 
 constexpr int64_t limit_param_max = 20000; // us, one 50 Hz period
@@ -35,9 +37,9 @@ constexpr uint32_t pwm_period_us = 20000; // 50 Hz
 constexpr uint32_t pwm_counts = 4096;     // PCA9685 resolution
 constexpr float motor_full_scale = 8192.f;
 
-// Parameter names: NODE_ID is parameter 0, the settings above are parameters 1 to 17
-constexpr uint32_t param_count = 1 + timeout_index + 1;
-constexpr size_t param_name_max = 17; // "MOTOR_TIMEOUT_MS" and the terminator
+// Parameter names: NODE_ID is parameter 0, the settings above are parameters 1 to 18
+constexpr uint32_t param_count = 1 + action_index + 1;
+constexpr size_t param_name_max = 21; // "MOTOR_TIMEOUT_ACTION" and the terminator
 
 // Writes the name of parameter `index` (0 = NODE_ID) into buf (param_name_max bytes). Returns false if there is no
 // such parameter.
@@ -57,6 +59,11 @@ inline bool param_name(uint32_t index, char *buf)
   if (i == timeout_index)
   {
     strcpy(buf, "MOTOR_TIMEOUT_MS");
+    return true;
+  }
+  if (i == action_index)
+  {
+    strcpy(buf, "MOTOR_TIMEOUT_ACTION");
     return true;
   }
   strcpy(buf, prefixes[i / 4]);
@@ -87,6 +94,10 @@ inline uint32_t default_setting(uint32_t i)
   {
     return default_motor_timeout_ms;
   }
+  if (i == action_index)
+  {
+    return default_motor_timeout_action;
+  }
   return tables[i / 4][i % 4];
 }
 
@@ -100,6 +111,10 @@ inline bool stored_value_ok(uint32_t i, uint16_t v)
   if (i == timeout_index)
   {
     return v >= timeout_param_min && v <= timeout_param_max;
+  }
+  if (i == action_index)
+  {
+    return v == 1; // 0 is "not set", which means the default (switch off)
   }
   return v >= 1 && v <= limit_param_max;
 }
@@ -135,7 +150,7 @@ public:
     memcpy(m_stored, stored, sizeof(m_stored));
     for (uint32_t i = 0; i < setting_count; i++)
     {
-      if (i > timeout_index || !stored_value_ok(i, m_stored[i]) || m_stored[i] == 0)
+      if (i > action_index || !stored_value_ok(i, m_stored[i]) || m_stored[i] == 0)
       {
         m_stored[i] = unset;
       }
@@ -166,7 +181,7 @@ public:
   // change anything.
   bool propose(uint32_t i, int64_t wanted, uint16_t (&candidate)[setting_count]) const
   {
-    if (i > timeout_index || wanted < 0 || wanted > 0xFFFE || (wanted != 0 && !stored_value_ok(i, (uint16_t)wanted)))
+    if (i > action_index || wanted < 0 || wanted > 0xFFFE || (wanted != 0 && !stored_value_ok(i, (uint16_t)wanted)))
     {
       return false;
     }
@@ -185,6 +200,12 @@ public:
   uint32_t timeout_ms() const
   {
     return m_timeout_ms;
+  }
+
+  // True if the motor timeout should hold the minimum pulse width instead of switching the outputs off
+  bool timeout_holds_idle() const
+  {
+    return m_timeout_action == 1;
   }
 
   uint16_t servo_min(uint32_t ch) const
@@ -269,11 +290,13 @@ private:
       m_motor_max[c] = (uint16_t)effective(12 + c, m_stored);
     }
     m_timeout_ms = effective(timeout_index, m_stored);
+    m_timeout_action = effective(action_index, m_stored);
   }
 
   uint16_t m_stored[setting_count];
   uint16_t m_servo_min[num_outputs], m_servo_max[num_outputs];
   uint16_t m_motor_min[num_outputs], m_motor_max[num_outputs];
   uint32_t m_timeout_ms{default_motor_timeout_ms};
+  uint32_t m_timeout_action{default_motor_timeout_action};
 };
 } // namespace Pwm

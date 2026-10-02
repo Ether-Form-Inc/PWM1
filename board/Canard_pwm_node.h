@@ -254,15 +254,23 @@ private:
     }
   }
 
-  // Motor mode only: switch the PWM signals off if no RawCommand has arrived for the motor timeout. They come back
-  // with the next RawCommand. Servo outputs hold their last value.
+  // Motor mode only: if no RawCommand has arrived for the motor timeout, switch the PWM signals off, or hold the
+  // minimum pulse width (zero throttle) if MOTOR_TIMEOUT_ACTION is 1. They come back with the next RawCommand. Servo
+  // outputs hold their last value.
   void service_motor_timeout(uint32_t now_ms)
   {
     if (!is_servo && motor_outputs_active && (uint32_t)(now_ms - last_motor_msg_ms) >= config.timeout_ms())
     {
       for (uint8_t c = 0; c < Pwm::num_outputs; c++)
       {
-        pca.set_off(c);
+        if (config.timeout_holds_idle())
+        {
+          pca.set_count(c, Pwm::pulse_to_count(config.motor_us(c, 0)));
+        }
+        else
+        {
+          pca.set_off(c);
+        }
       }
       motor_outputs_active = false;
       pwm_debug_stats.motor_timeouts = pwm_debug_stats.motor_timeouts + 1;
@@ -375,7 +383,8 @@ private:
   // ---- parameters ----
   //
   // Parameter 0 is NODE_ID (0 means "not set": the default applies), stored in flash and used from the next start.
-  // Parameters 1 to 17 are the pulse width limits (us) and the motor timeout (ms) of Pwm::Config, applied at once.
+  // Parameters 1 to 18 are the pulse width limits (us), the motor timeout (ms) and the timeout action of Pwm::Config,
+  // applied at once.
   // Writing 0 to a parameter restores its default.
   static int64_t stored_node_id()
   {
@@ -448,7 +457,8 @@ private:
       res.default_value.integer_value = is_node_id ? 0 : (int64_t)Pwm::default_setting(setting);
       res.max_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.max_value.integer_value = is_node_id ? node_id_param_max
-                                    : (setting == Pwm::timeout_index ? Pwm::timeout_param_max : Pwm::limit_param_max);
+                                    : (setting == Pwm::timeout_index ? Pwm::timeout_param_max
+                                       : (setting == Pwm::action_index ? 1 : Pwm::limit_param_max));
       res.min_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.min_value.integer_value = 0;
       char name[Pwm::param_name_max];

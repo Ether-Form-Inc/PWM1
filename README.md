@@ -28,6 +28,8 @@ In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 second
 
 The timeout is programmable with the `MOTOR_TIMEOUT_MS` parameter (100 to 60000 ms, stored in flash, applied immediately). Writing 0 restores the default, `default_motor_timeout_ms` in `board/user_defined_threshold.h` (5000 ms).
 
+What the timeout does is set by `MOTOR_TIMEOUT_ACTION`: 0 (the default) switches the PWM signals off, 1 holds the minimum pulse width (zero throttle) instead, which keeps an ESC armed. Some ESCs react to the signal disappearing; use 1 if yours does.
+
 ## Pulse width limits and motor timeout
 The pulse width limits that scale the commands are programmable over CAN, as parameters (type `uavcan.protocol.param.GetSet`, integer, microseconds). They are stored in flash, applied immediately and kept across restarts. Writing 0 to a parameter (or erasing, or an unwritten page) goes back to the default, which is the constant in `board/user_defined_threshold.h` (1000 us minimum, 2000 us maximum).
 

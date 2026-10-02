@@ -18,11 +18,11 @@ std::string name_of(uint32_t index)
 }
 } // namespace
 
-TEST(ParamNames, ThereAreEighteen)
+TEST(ParamNames, ThereAreNineteen)
 {
-  EXPECT_EQ(Pwm::param_count, 18u);
+  EXPECT_EQ(Pwm::param_count, 19u);
   char buf[Pwm::param_name_max];
-  EXPECT_FALSE(Pwm::param_name(18, buf));
+  EXPECT_FALSE(Pwm::param_name(19, buf));
 }
 
 TEST(ParamNames, Order)
@@ -35,6 +35,7 @@ TEST(ParamNames, Order)
   EXPECT_EQ(name_of(13), "MOTOR_MAX_US_0");
   EXPECT_EQ(name_of(16), "MOTOR_MAX_US_3");
   EXPECT_EQ(name_of(17), "MOTOR_TIMEOUT_MS");
+  EXPECT_EQ(name_of(18), "MOTOR_TIMEOUT_ACTION");
 }
 
 TEST(ParamNames, FindRoundTrips)
@@ -144,7 +145,7 @@ TEST(Programming, RejectsOutOfRangeValues)
   EXPECT_FALSE(c.propose(4, 20001, candidate));
   EXPECT_FALSE(c.propose(4, 70000, candidate));
   EXPECT_TRUE(c.propose(4, 20000, candidate));
-  EXPECT_FALSE(c.propose(17, 0, candidate)); // there is no setting 17
+  EXPECT_FALSE(c.propose(18, 1, candidate)); // there is no setting 18
 }
 
 TEST(Programming, ZeroRestoresTheDefault)
@@ -249,4 +250,35 @@ TEST(Loading, InconsistentLimitsGoBackToTheDefaults)
   EXPECT_EQ(c.servo_min(0), 1000);
   EXPECT_EQ(c.servo_max(0), 2000);
   EXPECT_EQ(c.timeout_ms(), 2500u); // the timeout is unaffected
+}
+
+TEST(TimeoutAction, DefaultsToSwitchingOffAndCanHoldIdle)
+{
+  Config c;
+  EXPECT_FALSE(c.timeout_holds_idle());
+  uint16_t candidate[Pwm::setting_count];
+  EXPECT_FALSE(c.propose(Pwm::action_index, 2, candidate)); // only 0 (default) and 1
+  ASSERT_TRUE(c.propose(Pwm::action_index, 1, candidate));
+  c.commit(candidate);
+  EXPECT_TRUE(c.timeout_holds_idle());
+  ASSERT_TRUE(c.propose(Pwm::action_index, 0, candidate));
+  c.commit(candidate);
+  EXPECT_FALSE(c.timeout_holds_idle());
+  EXPECT_EQ(c.stored()[Pwm::action_index], Pwm::unset);
+}
+
+TEST(TimeoutAction, LoadedValuesAreChecked)
+{
+  uint16_t stored[Pwm::setting_count];
+  for (auto &v : stored)
+  {
+    v = 0xFFFF;
+  }
+  stored[Pwm::action_index] = 1;
+  Config c;
+  c.load(stored);
+  EXPECT_TRUE(c.timeout_holds_idle());
+  stored[Pwm::action_index] = 7; // not a valid action: ignored
+  c.load(stored);
+  EXPECT_FALSE(c.timeout_holds_idle());
 }
