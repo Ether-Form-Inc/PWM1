@@ -24,7 +24,7 @@ class Stm_can_iface : public ICanIface
     hfdcan1.Init.ClockDivider = FDCAN_CLOCK_DIV1;
     hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
     hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
-    hfdcan1.Init.AutoRetransmission = DISABLE;
+    hfdcan1.Init.AutoRetransmission = ENABLE; // a frame lost to arbitration must be retried
     hfdcan1.Init.TransmitPause = DISABLE;
     hfdcan1.Init.ProtocolException = DISABLE;
     hfdcan1.Init.NominalPrescaler = 4;
@@ -36,7 +36,7 @@ class Stm_can_iface : public ICanIface
     hfdcan1.Init.DataTimeSeg1 = 1;
     hfdcan1.Init.DataTimeSeg2 = 1;
     hfdcan1.Init.StdFiltersNbr = 0;
-    hfdcan1.Init.ExtFiltersNbr = 0;
+    hfdcan1.Init.ExtFiltersNbr = 1;
     hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
     __HAL_RCC_FDCAN_CLK_ENABLE();
@@ -63,6 +63,10 @@ class Stm_can_iface : public ICanIface
 
     m_initialized &= (HAL_FDCAN_ConfigFilter(&hfdcan1, &filter) == HAL_OK);
 
+    // Reject standard frames and any extended frame not matching the filter above
+    m_initialized &= (HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE,
+                                                   FDCAN_FILTER_REMOTE) == HAL_OK);
+
     tx_header.IdType = FDCAN_EXTENDED_ID;
     tx_header.TxFrameType = FDCAN_DATA_FRAME;
     tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
@@ -75,13 +79,20 @@ class Stm_can_iface : public ICanIface
 
   int16_t send(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) override
   {
+    // libuavcan treats 0 as "no room, try again later" and a negative value as a failure that drops the frame. A
+    // multi-frame transfer (e.g. a parameter response) is bigger than the 3 element Tx FIFO, so wait for space.
+    if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) == 0)
+    {
+      return 0;
+    }
+
     tx_header.Identifier = frame.id;
     tx_header.DataLength = CanFrame::dlcToDataLength(frame.dlc);
     if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, frame.data) != HAL_OK)
     {
       return -1;
     }
-    return tx_header.DataLength;
+    return 1;
   }
 
   int16_t receive(CanFrame &out_frame, MonotonicTime &out_ts_monotonic, UtcTime &out_ts_utc,
@@ -122,6 +133,20 @@ class Stm_can_iface : public ICanIface
   uint16_t getNumFilters() const override
   {
     return 0;
+  }
+
+  // The controller goes bus-off when its transmit error counter passes 255, typically because nothing is
+  // acknowledging its frames (a wiring fault or a bit rate mismatch). The hardware then sets INIT and stays silent
+  // until software clears it.
+  bool bus_off() const
+  {
+    return (hfdcan1.Instance->PSR & FDCAN_PSR_BO) != 0;
+  }
+
+  // Leaves INIT; the controller waits for 128 occurrences of 11 recessive bits before it takes part in the bus again
+  void restart_after_bus_off()
+  {
+    CLEAR_BIT(hfdcan1.Instance->CCCR, FDCAN_CCCR_INIT);
   }
 
   uint64_t errors{};

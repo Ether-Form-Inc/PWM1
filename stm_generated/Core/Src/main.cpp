@@ -20,7 +20,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 #include <STM_can_to_pwm.h>
+#include <Stm_settings.h>
 #include <stm_can_interface.h>
+
+// Node ID used when none is stored in flash
+#define DEFAULT_NODE_ID 10
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -74,8 +78,18 @@ int main(void)
     actuator_id |= (1 << 2);
   }
 
+  // J5 selects the mode and actuator ids, so the node ID defaults to DEFAULT_NODE_ID. A node ID stored in flash (set
+  // over CAN with the NODE_ID parameter) overrides it. DroneCAN node IDs must be 1-127 (0 is reserved for anonymous
+  // nodes), so anything else is ignored.
+  uint8_t node_id = DEFAULT_NODE_ID;
+  uint8_t stored_node_id;
+  if (Stm_settings::read(Stm_settings::node_id, stored_node_id) && stored_node_id >= 1 && stored_node_id <= 127)
+  {
+    node_id = stored_node_id;
+  }
+
   // This needs to be static as we will blow through the stack otherwise
-  static STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{actuator_id, is_servo, 10};
+  static STM_can_to_pwm<Stm_can_iface, STM32_system_clock> can_to_pwm{actuator_id, is_servo, node_id};
   can_to_pwm.initialize();
 
   // Ensure uavcan has time to finish node transmission

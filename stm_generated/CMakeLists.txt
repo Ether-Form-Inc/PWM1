@@ -22,15 +22,6 @@ file(GLOB source
 
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-FetchContent_Declare(
-  libuavcan
-  GIT_REPOSITORY git@server2.internal.etherform.com:hardware/efi_libuavcan.git 
-  GIT_TAG        EFI_main 
-  GIT_SHALLOW    FALSE
-  SOURCE_DIR     ${LIBUAVCAN_SRC}
-  BINARY_DIR     ${LIBUAVCAN_BUILD}
-)
-FetchContent_MakeAvailable(libuavcan)
 
 add_executable(${PROJECT_NAME} ${source})
 
@@ -68,11 +59,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   uavcan
 )
 
-set(PROGRAMMER openocd)
-set(PROGRAMMER_FLAGS -f interface/stlink.cfg -f target/stm32g0x.cfg)
+# "make flash" programs the board over SWD and checks that it works (see tools/flash_and_check.py). It needs Python 3
+# and OpenOCD (the copy in STM32CubeIDE is found automatically); the CAN check also needs pyserial and a USB-CAN
+# adapter. Extra script arguments can be given with -DFLASH_ARGS, e.g. -DFLASH_ARGS="--can-device none".
+find_program(FLASH_PYTHON NAMES python3 python)
+set(FLASH_ARGS "" CACHE STRING "Extra arguments for tools/flash_and_check.py")
+separate_arguments(FLASH_ARGS_LIST UNIX_COMMAND "${FLASH_ARGS}")
 
 add_custom_target(flash
-    COMMAND ${PROGRAMMER} ${PROGRAMMER_FLAGS} -c "program $<TARGET_FILE:${PROJECT_NAME}> verify reset exit"
+    COMMAND ${FLASH_PYTHON} ${CMAKE_SOURCE_DIR}/tools/flash_and_check.py --elf $<TARGET_FILE:${PROJECT_NAME}> ${FLASH_ARGS_LIST}
     DEPENDS ${PROJECT_NAME}
+    USES_TERMINAL
     VERBATIM)
-  
