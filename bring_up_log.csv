@@ -1,0 +1,2 @@
+timestamp,result,chip_uid,firmware,hardware,pwm_prescale,period_default_us,high_default_us,period_calibrated_us,period_error_pct,out0_period_us,out1_period_us,out2_period_us,out3_period_us,out0_high_us,out1_high_us,out2_high_us,out3_high_us,j5_mode,j5_offset,can_selftest,failures
+2026-10-02T10:30:54,PASS,2038335155315003004e0051,0.3.0+df120480,2.0,136,17838,888,20036,0.18,20033,20032,20028,20029,998,998,998,998,motor,0,pass,

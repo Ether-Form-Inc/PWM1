@@ -104,27 +104,34 @@ def target_voltage(output):
 
 
 def can_selftest(probe, boot_wait):
-    """The CAN controller drives TX dominant and recessive and the transceiver must follow on RX (no bus needed).
-    Returns (ok, detail). Resets the board afterwards."""
+    """The CAN controller drives its TX line dominant and the transceiver must answer on RX (needs no bus). Returns
+    (ok, detail). Resets the board afterwards.
+
+    A CAN transceiver releases the bus if TXD stays dominant for a few milliseconds (its time-out), so RX is read
+    immediately after each dominant pulse and TX is returned to recessive for several milliseconds in between."""
     commands = ["catch {halt}",
                 "mww 0x40006418 0x00000001", "mww 0x40006418 0x00000003", "mww 0x40006418 0x00000083",
                 "proc rxl {} {return [expr {([lindex [read_memory 0x50000010 32 1] 0] >> 11) & 1}]}",
-                "mww 0x40006410 0x00000060", "sleep 20", 'echo "TXTEST recessive [rxl]"',
-                "mww 0x40006410 0x00000040", "sleep 20", 'echo "TXTEST dominant [rxl]"',
-                "mww 0x40006410 0x00000060", "sleep 20", 'echo "TXTEST recessive_again [rxl]"',
+                "proc txtest {} { set low 0; set high 0; set n 12; "
+                "for {set i 0} {$i < $n} {incr i} { "
+                "mww 0x40006410 0x00000040; set d [rxl]; mww 0x40006410 0x00000060; sleep 6; set r [rxl]; "
+                "if {$d == 0} {incr low}; if {$r == 1} {incr high} }; "
+                'echo "TXTEST dominant_low $low recessive_high $high of $n" }',
+                "txtest",
                 "mww 0x40006410 0x00000000", "mww 0x40006418 0x00000003", "mww 0x40006418 0x00000001",
                 "reset run"]
     out = probe.run(commands)
     time.sleep(boot_wait)
     if out is None:
         return False, "the ST-LINK timed out"
-    got = dict(re.findall(r"^TXTEST (\w+) (\d)", out, re.M))
-    if not {"recessive", "dominant", "recessive_again"} <= set(got):
+    m = re.search(r"TXTEST dominant_low (\d+) recessive_high (\d+) of (\d+)", out)
+    if not m:
         return False, "could not run the test"
-    ok = got["recessive"] == "1" and got["dominant"] == "0" and got["recessive_again"] == "1"
-    return ok, "RX followed TX" if ok else \
-        "RX did not follow TX (RX = %s/%s/%s for TX recessive/dominant/recessive)" % (
-            got["recessive"], got["dominant"], got["recessive_again"])
+    low, high, n = (int(x) for x in m.groups())
+    # RX must go low in response to TX dominant at least sometimes (the read has to land inside the transceiver's
+    # time-out) and must always be recessive when TX is
+    ok = low >= 2 and high == n
+    return ok, "RX followed TX dominant %d of %d times and was recessive %d of %d times" % (low, n, high, n)
 
 
 def main():

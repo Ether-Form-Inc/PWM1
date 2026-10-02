@@ -78,13 +78,35 @@ J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can 
 
 Writing flash stops the processor for a few tens of milliseconds, so do not change the ID while the actuators are in use.
 
+## Bring-up of a new board
+`tools/bring_up.py` sets up a board in one command. Connect an ST-LINK to J3, power the board (5 V on J1), and connect a serial USB-CAN adapter to the CAN bus (terminated), then run it with the Python that has `dronecan` and `pyserial`:
+
+```bash
+tools/bring_up.py                                   # programs the newest build
+tools/bring_up.py --elf path/to/can_pwm_firmware.elf
+```
+
+It takes about 25 s and does, in order:
+1. Checks the ST-LINK sees a powered STM32G0B1 and reads its unique ID.
+2. **Mass-erases all flash** (clearing every setting) and programs and verifies the firmware.
+3. Checks the firmware started and has the version that was programmed.
+4. **CAN transceiver self-test over SWD** (needs no bus): the CAN controller drives its TX line and the transceiver must answer on RX. This catches a Rev A board (CAN RX and TX swapped), a missing 5 V supply or a faulty transceiver.
+5. Reads GetNodeInfo over CAN and checks it is the chip just programmed, healthy, and the right version and commit.
+6. **Calibrates `PWM_PRESCALE`:** the node times its PWM output with the MCU's timer, and the script sets the prescale that gives a 20 ms period (see PWM timing calibration). The result must be within 1 % of 20 ms (`--tolerance`).
+7. Times all four outputs and checks their period and idle pulse width.
+8. Checks only the calibration is stored in flash: the node ID, pulse width limits and everything else stay at their defaults.
+9. Prints **PASS** or **FAIL** (exit code 0 only for PASS) and appends a line to `bring_up_log.csv` in the repository folder (chip unique ID, firmware, hardware, prescale, measured periods, J5 settings, result and any problems). The log is not part of git; keep or commit it as you like.
+
+The calibration uses the MCU's internal 16 MHz oscillator as the time reference (about +-1 %), and the prescale changes the period in steps of about 0.8 %, so the calibrated period is within about 1 % of 20 ms. The measurement is a bench feature: the node refuses it once it has received a command since it started, because it drives an output with the idle pulse while it measures. `tools/can_pwm_param.py 10 measure 0` runs it by hand.
+
 ## Python tools
 The scripts in `tools/` talk to the board through a serial USB-CAN adapter (`pip install dronecan pyserial`) or an ST-LINK:
 
 | Script | Purpose |
 |--------|---------|
+| `bring_up.py` | Set up a new board in one command: wipe, program, self-test, calibrate the PWM timing, test the outputs, log the result |
 | `flash_and_check.py` | Program, verify and check a board over SWD and CAN (also run by `make flash`); set or clear the node ID or all settings |
-| `can_pwm_param.py` | List, read and set the parameters (node ID, pulse width limits, motor timeout), erase them, restart the node |
+| `can_pwm_param.py` | List, read and set the parameters (node ID, pulse width limits, motor timeout, calibration), time an output (`measure`), erase them, restart the node |
 | `can_getnodeinfo.py` | Read GetNodeInfo (name, version, health) from a node |
 | `motor_ramp.py` | Ramp the outputs 0 to full scale and back, in motor or servo mode, for bench tests (remove the propellers first) |
 
