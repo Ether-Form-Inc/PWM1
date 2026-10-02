@@ -23,6 +23,13 @@ The three offset bits give an offset of 0 to 7. PWM output 0 (J4 pin 8) answers 
 ## Motor mode commands
 RawCommand values from 0 to 8191 map linearly to a 1000 to 2000 us pulse. Negative values are not supported (there is no meaningful PWM for them) and are treated as 0.
 
+## PWM timing calibration
+The PCA9685 generates the PWM from its internal oscillator, which is only accurate to about +-10 %, so the period and every pulse width are off by the same factor on a board that has not been calibrated. A board measured at the default `PWM_PRESCALE` of 121 had a 18.6 ms period (53.8 Hz) and a 926 us idle pulse instead of 20 ms and 1000 us. Calibrate each board against a scope (or the logic analyser) reading of the period at the default:
+
+    new PWM_PRESCALE = round((121 + 1) * 20000 / measured_period_us) - 1      (18600 us gives 130)
+
+then `tools/can_pwm_param.py 10 set PWM_PRESCALE <value>`. The change applies at once (the outputs pause for about a millisecond) and is kept across restarts. Writing 0 restores the default of 121.
+
 ## Motor mode timeout
 In motor mode (J5 pin 1 open), if no RawCommand message is received for 5 seconds all four PWM signals are switched off (held low, as after power-up). They resume with the next RawCommand. Servo mode has no timeout: each output keeps its last commanded pulse width.
 

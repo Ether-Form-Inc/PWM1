@@ -43,3 +43,8 @@ static constexpr uint32_t default_motor_timeout_ms{5000};
 // What the motor mode timeout does to the outputs: 0 = switch the PWM signal off, 1 = hold the minimum pulse width
 // (zero throttle), which keeps an ESC armed
 static constexpr uint32_t default_motor_timeout_action{0};
+
+// PCA9685 PRE_SCALE register: period = 4096 * (PRE_SCALE + 1) / oscillator frequency. 121 gives 50 Hz when the
+// internal oscillator is exactly 25 MHz, but that oscillator is only accurate to about +-10 %, so the PWM_PRESCALE
+// parameter lets each board be calibrated against a measured period.
+static constexpr uint32_t default_pwm_prescale{121};

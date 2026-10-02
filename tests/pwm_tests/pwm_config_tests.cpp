@@ -18,11 +18,11 @@ std::string name_of(uint32_t index)
 }
 } // namespace
 
-TEST(ParamNames, ThereAreNineteen)
+TEST(ParamNames, ThereAreTwenty)
 {
-  EXPECT_EQ(Pwm::param_count, 19u);
+  EXPECT_EQ(Pwm::param_count, 20u);
   char buf[Pwm::param_name_max];
-  EXPECT_FALSE(Pwm::param_name(19, buf));
+  EXPECT_FALSE(Pwm::param_name(20, buf));
 }
 
 TEST(ParamNames, Order)
@@ -36,6 +36,7 @@ TEST(ParamNames, Order)
   EXPECT_EQ(name_of(16), "MOTOR_MAX_US_3");
   EXPECT_EQ(name_of(17), "MOTOR_TIMEOUT_MS");
   EXPECT_EQ(name_of(18), "MOTOR_TIMEOUT_ACTION");
+  EXPECT_EQ(name_of(19), "PWM_PRESCALE");
 }
 
 TEST(ParamNames, FindRoundTrips)
@@ -145,7 +146,7 @@ TEST(Programming, RejectsOutOfRangeValues)
   EXPECT_FALSE(c.propose(4, 20001, candidate));
   EXPECT_FALSE(c.propose(4, 70000, candidate));
   EXPECT_TRUE(c.propose(4, 20000, candidate));
-  EXPECT_FALSE(c.propose(18, 1, candidate)); // there is no setting 18
+  EXPECT_FALSE(c.propose(19, 1, candidate)); // there is no setting 19
 }
 
 TEST(Programming, ZeroRestoresTheDefault)
@@ -226,14 +227,14 @@ TEST(Loading, StoredValuesAreUsedAndBadOnesIgnored)
   stored[5] = 1900;           // SERVO_MAX_US_1
   stored[8] = 30000;          // MOTOR_MIN_US_0, out of range: ignored
   stored[Pwm::timeout_index] = 2500;
-  stored[18] = 123;           // beyond the used settings: ignored
+  stored[19] = 123;           // beyond the used settings: ignored
   Config c;
   c.load(stored);
   EXPECT_EQ(c.servo_min(1), 1100);
   EXPECT_EQ(c.servo_max(1), 1900);
   EXPECT_EQ(c.motor_min(0), 1000);
   EXPECT_EQ(c.timeout_ms(), 2500u);
-  EXPECT_EQ(c.stored()[18], Pwm::unset);
+  EXPECT_EQ(c.stored()[19], Pwm::unset);
 }
 
 TEST(Loading, InconsistentLimitsGoBackToTheDefaults)
@@ -281,4 +282,19 @@ TEST(TimeoutAction, LoadedValuesAreChecked)
   stored[Pwm::action_index] = 7; // not a valid action: ignored
   c.load(stored);
   EXPECT_FALSE(c.timeout_holds_idle());
+}
+
+TEST(Prescale, DefaultsTo121AndIsProgrammable)
+{
+  Config c;
+  EXPECT_EQ(c.prescale(), 121);
+  uint16_t candidate[Pwm::setting_count];
+  EXPECT_FALSE(c.propose(Pwm::prescale_index, 2, candidate)); // below what the PCA9685 accepts
+  EXPECT_FALSE(c.propose(Pwm::prescale_index, 256, candidate));
+  ASSERT_TRUE(c.propose(Pwm::prescale_index, 130, candidate));
+  c.commit(candidate);
+  EXPECT_EQ(c.prescale(), 130);
+  ASSERT_TRUE(c.propose(Pwm::prescale_index, 0, candidate));
+  c.commit(candidate);
+  EXPECT_EQ(c.prescale(), 121);
 }

@@ -49,6 +49,7 @@ public:
     fdcan.init();
     canardInit(&canard, pool, sizeof(pool), on_transfer_received, should_accept_transfer, this);
     canardSetLocalNodeID(&canard, node_id);
+    pca.set_prescale(config.prescale());
     pca.init(); // a chip that does not answer is retried by service_pca()
 
     for (;;)
@@ -383,8 +384,8 @@ private:
   // ---- parameters ----
   //
   // Parameter 0 is NODE_ID (0 means "not set": the default applies), stored in flash and used from the next start.
-  // Parameters 1 to 18 are the pulse width limits (us), the motor timeout (ms) and the timeout action of Pwm::Config,
-  // applied at once.
+  // Parameters 1 to 19 are the pulse width limits (us), the motor timeout (ms), the timeout action and the PCA9685
+  // prescale of Pwm::Config, applied at once.
   // Writing 0 to a parameter restores its default.
   static int64_t stored_node_id()
   {
@@ -414,6 +415,7 @@ private:
     if (config.propose(index - 1, wanted, candidate) && Stm_settings::write_pwm_ranges(candidate))
     {
       config.commit(candidate);
+      pca.set_prescale(config.prescale()); // does nothing unless PWM_PRESCALE changed
     }
   }
 
@@ -458,7 +460,9 @@ private:
       res.max_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.max_value.integer_value = is_node_id ? node_id_param_max
                                     : (setting == Pwm::timeout_index ? Pwm::timeout_param_max
-                                       : (setting == Pwm::action_index ? 1 : Pwm::limit_param_max));
+                                       : (setting == Pwm::action_index ? 1
+                                       : (setting == Pwm::prescale_index ? Pwm::prescale_param_max
+                                                                          : Pwm::limit_param_max)));
       res.min_value.union_tag = UAVCAN_PROTOCOL_PARAM_NUMERICVALUE_INTEGER_VALUE;
       res.min_value.integer_value = 0;
       char name[Pwm::param_name_max];
@@ -497,6 +501,7 @@ private:
       // Back to the default node ID, pulse width limits and motor timeout
       res.ok = Stm_settings::erase(Stm_settings::node_id) && Stm_settings::erase(Stm_settings::pwm_ranges);
       config.clear();
+      pca.set_prescale(config.prescale());
     }
 
     uint8_t buf[UAVCAN_PROTOCOL_PARAM_EXECUTEOPCODE_RESPONSE_MAX_SIZE] = {};

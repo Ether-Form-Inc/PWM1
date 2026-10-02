@@ -31,6 +31,21 @@ public:
   static constexpr uint32_t num_outputs = 4;
   static constexpr uint16_t off = 0xFFFF; // last_count() value for "output held off"
 
+  // Sets the PRE_SCALE value used by init(). If the chip is running, it is reprogrammed at once (the chip has to go to
+  // sleep to change it, so the outputs pause for about a millisecond).
+  void set_prescale(uint8_t prescale)
+  {
+    if (prescale == m_prescale)
+    {
+      return;
+    }
+    m_prescale = prescale;
+    if (m_ok)
+    {
+      apply_prescale();
+    }
+  }
+
   // (Re)initializes the I2C peripheral and the PCA9685. Returns true if the chip answered every write.
   bool init()
   {
@@ -49,21 +64,7 @@ public:
     good &= HAL_I2CEx_ConfigAnalogFilter(&hi2c, I2C_ANALOGFILTER_ENABLE) == HAL_OK;
     good &= HAL_I2CEx_ConfigDigitalFilter(&hi2c, 0) == HAL_OK;
 
-    uint8_t data[2];
-    // MODE1: sleep
-    data[0] = 0x00;
-    data[1] = 0x10;
-    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
-    // PRE_SCALE: 50 Hz servo PWM, 25 MHz oscillator / (4096 * 50 Hz) - 1 = 121
-    data[0] = 0xFE;
-    data[1] = 121;
-    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
-    // MODE1: wake up, auto increment
-    data[0] = 0x00;
-    data[1] = 0x20;
-    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
-    // The oscillator needs 500 us to start after sleep is cleared
-    HAL_Delay(1);
+    good &= apply_prescale();
 
     m_ok = good;
     m_last_try_ms = HAL_GetTick();
@@ -124,6 +125,33 @@ public:
   }
 
 private:
+  // Sleep, set PRE_SCALE, wake up with auto increment. Returns true if the chip answered every write.
+  bool apply_prescale()
+  {
+    uint8_t data[2];
+    bool good = true;
+    // MODE1: sleep
+    data[0] = 0x00;
+    data[1] = 0x10;
+    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
+    // PRE_SCALE: period = 4096 * (PRE_SCALE + 1) / oscillator frequency, 20 ms with a 25 MHz oscillator at 121
+    data[0] = 0xFE;
+    data[1] = m_prescale;
+    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
+    // MODE1: wake up, auto increment
+    data[0] = 0x00;
+    data[1] = 0x20;
+    good &= HAL_I2C_Master_Transmit(&hi2c, addr << 1, data, 2, i2c_timeout_ms) == HAL_OK;
+    // The oscillator needs 500 us to start after sleep is cleared
+    HAL_Delay(1);
+    if (!good)
+    {
+      m_ok = false;
+      m_last_try_ms = HAL_GetTick();
+    }
+    return good;
+  }
+
   static constexpr uint8_t addr = 0x43;
   static constexpr uint32_t i2c_timeout_ms = 20; // a transfer of a few bytes takes well under 1 ms
   static constexpr uint32_t retry_ms = 1000;
@@ -149,6 +177,7 @@ private:
 
   I2C_HandleTypeDef hi2c{};
   bool m_ok{false};
+  uint8_t m_prescale{121};
   uint32_t m_last_try_ms{0};
   uint16_t m_last_count[num_outputs] = {off, off, off, off};
 };

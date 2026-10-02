@@ -43,10 +43,10 @@ DEFAULT_NODE_ID = 10
 GPIOB_IDR, GPIOA_IDR = 0x50000410, 0x50000010
 UID_ADDRESS = 0x1FFF7590
 
-# Names of the halfwords in the settings page (0xFFFF = not set, the default is used)
+# Names of the halfwords in the settings page (0xFFFF = not set, the default is used); see board/Pwm_config.h
 PWM_NAMES = ([f"SERVO_MIN_US_{i}" for i in range(4)] + [f"SERVO_MAX_US_{i}" for i in range(4)] +
              [f"MOTOR_MIN_US_{i}" for i in range(4)] + [f"MOTOR_MAX_US_{i}" for i in range(4)] +
-             ["MOTOR_TIMEOUT_MS"] + ["(unused)"] * 3)
+             ["MOTOR_TIMEOUT_MS", "MOTOR_TIMEOUT_ACTION", "PWM_PRESCALE"] + ["(unused)"])
 
 
 def newest_elf():
