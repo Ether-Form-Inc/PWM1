@@ -5,3 +5,6 @@ messages/compiled
 
 __pycache__/
 *.pyc
+
+# Local record of bring-ups (tools/bring_up.py); kept on the machine that ran them, not in the repository
+bring_up_log.csv
