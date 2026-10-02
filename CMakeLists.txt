@@ -35,6 +35,10 @@ FetchContent_Populate(efi_can_common)
 set(ARCH "STM" CACHE STRING "Target architecture")
 
 if(${ARCH} STREQUAL "STM")
+  # The default build types do not fit in the 122 KB flash region, so default to the smallest
+  if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE MinSizeRel CACHE STRING "Build type" FORCE)
+  endif()
   set(CMAKE_TOOLCHAIN_FILE ../stm32-toolchain.cmake CACHE STRING "" FORCE)
   #STM Build
   project(can_pwm_firmware LANGUAGES C CXX ASM)

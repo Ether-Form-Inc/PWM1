@@ -135,6 +135,20 @@ class Stm_can_iface : public ICanIface
     return 0;
   }
 
+  // The controller goes bus-off when its transmit error counter passes 255, typically because nothing is
+  // acknowledging its frames (a wiring fault or a bit rate mismatch). The hardware then sets INIT and stays silent
+  // until software clears it.
+  bool bus_off() const
+  {
+    return (hfdcan1.Instance->PSR & FDCAN_PSR_BO) != 0;
+  }
+
+  // Leaves INIT; the controller waits for 128 occurrences of 11 recessive bits before it takes part in the bus again
+  void restart_after_bus_off()
+  {
+    CLEAR_BIT(hfdcan1.Instance->CCCR, FDCAN_CCCR_INIT);
+  }
+
   uint64_t errors{};
   uint64_t getErrorCount() const override
   {

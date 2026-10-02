@@ -50,6 +50,10 @@ tools/can_pwm_param.py 10 set MOTOR_TIMEOUT_MS 2000   # motor mode timeout, ms
 tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID and the motor timeout)
 ```
 
+## Fault handling
+* **PCA9685 (I2C):** I2C timeouts are 20 ms. If a write to the PCA9685 fails, the node reports NodeStatus health ERROR with vendor specific status code 1, skips further writes, and every second re-initializes the I2C peripheral and the PCA9685. When it answers again the health returns to OK and the outputs are restored to their last commanded state.
+* **CAN bus-off:** after a bus-off the controller is restarted every 100 ms until it rejoins the bus.
+
 ## Node ID
 J5 is used for the mode and actuator ids, so the node ID defaults to 10. It can be changed over CAN with the standard DroneCAN parameter services (for example from the DroneCAN GUI tool):
 
@@ -63,12 +67,12 @@ Writing flash stops the processor for a few tens of milliseconds, so do not chan
 The software can be built for two different architectures, STM32 and POSIX. The POSIX build can be used to verify, experiment, and test the software/hardware, whereas the STM32 architecture will load onto EFI's HW for CAN based actuation.
 
 ## STM
-Note that cmake will use the STM architecture by default. The build needs `arm-none-eabi-gcc` on your PATH, or set `ARM_TOOLCHAIN_DIR` to the directory containing it (e.g. the `tools/bin` folder of STM32CubeIDE's GNU Tools for STM32 plugin). Use the `MinSizeRel` build type; the default `RelWithDebInfo` build is too large for the 122 KB flash region.
+Note that cmake will use the STM architecture by default. The build needs `arm-none-eabi-gcc` on your PATH, or set `ARM_TOOLCHAIN_DIR` to the directory containing it (e.g. the `tools/bin` folder of STM32CubeIDE's GNU Tools for STM32 plugin). The build type defaults to `MinSizeRel`; the other build types are too large for the 122 KB flash region.
 
 ```bash
 mkdir build\_stm
 cd build\_stm
-cmake .. -DARCH=STM -DCMAKE_BUILD_TYPE=MinSizeRel
+cmake .. -DARCH=STM
 make
 ```
 

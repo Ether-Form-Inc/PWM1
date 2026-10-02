@@ -40,16 +40,8 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
     hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
 
-    m_initialized = ((HAL_I2C_Init(&hi2c2) == HAL_OK));
-
-    // Configure Analogue filter
-    m_initialized &= (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) == HAL_OK);
-
-    // Configure Digital filter
-    m_initialized &= (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) == HAL_OK);
-
-    // Initialize PCA
-    m_initialized &= PCA9685_Init();
+    m_pca_ok = init_pca();
+    m_initialized = m_pca_ok;
 
     // Pulse width limits: the defaults, overridden by any values stored in flash
     load_ranges();
@@ -119,6 +111,7 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
   void custom_initialization() override
   {
     Base::custom_initialization();
+    report_pca_health();
     m_param_server.start(&m_param_manager);
     m_restart_server.setHandler(&m_restart_handler);
     m_restart_server.start();
@@ -130,6 +123,36 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     if (m_restart_handler.requested && (HAL_GetTick() - m_restart_handler.requested_ms) >= restart_delay_ms)
     {
       NVIC_SystemReset();
+    }
+
+    // Rejoin the bus after a bus-off, retrying every bus_off_retry_ms while it lasts
+    if (Base::can_driver.can_iface.bus_off())
+    {
+      if (!m_bus_off_seen)
+      {
+        m_bus_off_seen = true;
+        m_last_bus_off_action_ms = HAL_GetTick();
+      }
+      else if ((HAL_GetTick() - m_last_bus_off_action_ms) >= bus_off_retry_ms)
+      {
+        Base::can_driver.can_iface.restart_after_bus_off();
+        m_last_bus_off_action_ms = HAL_GetTick();
+      }
+    }
+    else
+    {
+      m_bus_off_seen = false;
+    }
+
+    // If the PCA9685 stopped answering, retry from scratch once a second and then restore the outputs
+    if (!m_pca_ok && (HAL_GetTick() - m_last_pca_try_ms) >= pca_retry_ms)
+    {
+      m_last_pca_try_ms = HAL_GetTick();
+      if (init_pca())
+      {
+        set_pca_ok(true);
+        restore_outputs();
+      }
     }
 
     // Motor mode only: switch the PWM signals off if no RawCommand has arrived for m_motor_timeout_ms. They come back
@@ -151,6 +174,10 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   private:
   static constexpr uint32_t restart_delay_ms{500};
+  static constexpr uint32_t pca_retry_ms{1000};
+  static constexpr uint32_t bus_off_retry_ms{100};
+  static constexpr uint32_t i2c_timeout_ms{20}; // a transfer of a few bytes takes well under 1 ms
+  static constexpr uint32_t off_count{0xFFFF};  // m_last_count value for "output held off"
   static constexpr int64_t node_id_param_max{127};
 
   // Parameter 0 is NODE_ID. Parameters 1 to 16 are the PWM pulse width limits in us, applied immediately:
@@ -334,6 +361,12 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   I2C_HandleTypeDef hi2c2;
   volatile bool m_initialized{false};
+  bool m_pca_ok{false};
+  bool m_bus_off_seen{false};
+  uint32_t m_last_bus_off_action_ms{0};
+  uint32_t m_last_pca_try_ms{0};
+  // Last count written to each output (or off_count), so the outputs can be restored after the PCA9685 recovers
+  uint16_t m_last_count[NUM_PWM_OUTPUTS] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
   // Pulse width limits in use (us) and their spans, per output
   uint16_t m_servo_min_us[NUM_PWM_OUTPUTS];
   uint16_t m_servo_max_us[NUM_PWM_OUTPUTS];
@@ -442,6 +475,17 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     }
   }
 
+  // (Re)initializes the I2C peripheral and the PCA9685. Returns true if the PCA9685 answered every write.
+  bool init_pca()
+  {
+    HAL_I2C_DeInit(&hi2c2); // also clears a hung bus state left by an earlier error
+    bool ok = (HAL_I2C_Init(&hi2c2) == HAL_OK);
+    ok &= (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) == HAL_OK);
+    ok &= (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) == HAL_OK);
+    ok &= PCA9685_Init();
+    return ok;
+  }
+
   bool PCA9685_Init(void)
   {
     bool ret{true};
@@ -450,20 +494,83 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
     // MODE1: sleep
     data[0] = 0x00;
     data[1] = 0x10;
-    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, 100) == HAL_OK);
+    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, i2c_timeout_ms) == HAL_OK);
 
     // PRE_SCALE: 50Hz servo PWM
     // 25MHz oscillator / (4096 * 50Hz) - 1 = 121
     data[0] = 0xFE;
     data[1] = 121;
-    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, 100) == HAL_OK);
+    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, i2c_timeout_ms) == HAL_OK);
 
     // MODE1: wake up, auto increment
     data[0] = 0x00;
     data[1] = 0x20;
-    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, 100) == HAL_OK);
+    ret &= (HAL_I2C_Master_Transmit(&hi2c2, PCA9685_ADDR << 1, data, 2, i2c_timeout_ms) == HAL_OK);
+
+    // The oscillator needs 500 us to start after sleep is cleared
+    HAL_Delay(1);
 
     return ret;
+  }
+
+  // NodeStatus health: OK normally, ERROR (vendor specific status code 1) while the PCA9685 does not answer
+  void report_pca_health()
+  {
+    if (m_pca_ok)
+    {
+      Base::m_ownship_node.setHealthOk();
+      Base::m_ownship_node.setVendorSpecificStatusCode(0);
+    }
+    else
+    {
+      Base::m_ownship_node.setHealthError();
+      Base::m_ownship_node.setVendorSpecificStatusCode(1);
+    }
+  }
+
+  void set_pca_ok(bool ok)
+  {
+    if (ok != m_pca_ok)
+    {
+      m_pca_ok = ok;
+      m_initialized = ok;
+      report_pca_health();
+    }
+  }
+
+  // Writes the four bytes of a channel's ON/OFF registers. A failure marks the PCA9685 as not answering, after which
+  // writes are skipped (they would only stall the loop) until init_pca() succeeds again.
+  void write_channel(uint8_t channel_x, uint8_t on_l, uint8_t on_h, uint8_t off_l, uint8_t off_h)
+  {
+    if (!m_pca_ok)
+    {
+      return;
+    }
+    uint8_t pwm_val[4] = {on_l, on_h, off_l, off_h};
+    static constexpr uint8_t ch0_addr{0x06};
+    const uint8_t ch_x_addr{(uint8_t)(ch0_addr + channel_x * 4)};
+    if (HAL_I2C_Mem_Write(&hi2c2, PCA9685_ADDR << 1, ch_x_addr, I2C_MEMADD_SIZE_8BIT, pwm_val, 4, i2c_timeout_ms) !=
+        HAL_OK)
+    {
+      set_pca_ok(false);
+      m_last_pca_try_ms = HAL_GetTick();
+    }
+  }
+
+  // Puts every output back to its last commanded state after the PCA9685 has been re-initialized
+  void restore_outputs()
+  {
+    for (uint8_t c = 0; c < NUM_PWM_OUTPUTS; c++)
+    {
+      if (m_last_count[c] == off_count)
+      {
+        set_pwm_off(c);
+      }
+      else
+      {
+        set_pwm(c, 0, m_last_count[c]);
+      }
+    }
   }
 
   static uint16_t convert_pulse_to_count(uint16_t pulse_us)
@@ -473,24 +580,15 @@ template <typename CAN_IF, typename SYS_CLK> class STM_can_to_pwm : public Can_t
 
   void set_pwm(uint8_t channel_x, uint16_t on, uint16_t off)
   {
-    uint8_t pwm_val[4];
-    pwm_val[0] = on & 0xFF;
-    pwm_val[1] = (on >> 8) & 0x0F;
-    pwm_val[2] = off & 0xFF;
-    pwm_val[3] = (off >> 8) & 0x0F;
-
-    static constexpr uint8_t ch0_addr{0x06};
-    const uint8_t ch_x_addr{(uint8_t)(ch0_addr + channel_x * 4)};
-    HAL_I2C_Mem_Write(&hi2c2, PCA9685_ADDR << 1, ch_x_addr, I2C_MEMADD_SIZE_8BIT, pwm_val, 4, 1000);
+    m_last_count[channel_x] = off;
+    write_channel(channel_x, on & 0xFF, (on >> 8) & 0x0F, off & 0xFF, (off >> 8) & 0x0F);
   }
 
   // Holds the output low (PCA9685 "full off" bit), as it is after power-up
   void set_pwm_off(uint8_t channel_x)
   {
-    uint8_t pwm_val[4] = {0, 0, 0, 0x10};
-    static constexpr uint8_t ch0_addr{0x06};
-    HAL_I2C_Mem_Write(&hi2c2, PCA9685_ADDR << 1, (uint8_t)(ch0_addr + channel_x * 4), I2C_MEMADD_SIZE_8BIT, pwm_val, 4,
-                      1000);
+    m_last_count[channel_x] = off_count;
+    write_channel(channel_x, 0, 0, 0, 0x10);
   }
 
   void set_unitless_servo(uint8_t channel_x, float unitless)
