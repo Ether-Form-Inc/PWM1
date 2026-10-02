@@ -254,6 +254,9 @@ def main():
             id_file.close()
             commands.append("flash write_image erase %s 0x%08X bin" % (id_file.name.replace("\\", "/"), NODE_ID_PAGE[1]))
     if len(commands) > 1:
+        # A brand-new STM32G0 keeps its "main flash empty" flag (FLASH_ACR.EMPTY) set until software clears it after the
+        # first programming, and while it is set every reset boots ST's system bootloader instead of the firmware
+        commands.append("mmw 0x40022000 0x0 0x00010000")
         commands.append("reset run")
         out = probe.run(commands, timeout=300)
         if id_file:
