@@ -20,6 +20,23 @@ J5 is a 2x4 header (1.27 mm pitch). Each of its four rows has a signal pin (odd 
 The three offset bits give an offset of 0 to 7. PWM output 0 (J4 pin 8) answers actuator id = offset, output 1 (pin 6) offset + 1, output 2 (pin 4) offset + 2 and output 3 (pin 2) offset + 3. The highest actuator id reachable with the jumpers is therefore 10, so to use more than 11 actuators a SW offset must be set (See Building and Flashing).
 
 
+## All parameters
+Everything is set over CAN with `uavcan.protocol.param.GetSet` (the DroneCAN GUI tool, or `tools/can_pwm_param.py`). Writing 0 to a stored setting restores its default, which is the constant in `board/user_defined_threshold.h`. Stored settings live in flash and are kept across restarts and firmware updates; `ExecuteOpcode` erase clears all of them.
+
+| Parameter | Range | Default | Meaning |
+|-----------|-------|---------|---------|
+| `NODE_ID` | 1 to 127 | 10 | DroneCAN node ID, used after a restart |
+| `SERVO_MIN_US_0..3`, `SERVO_MAX_US_0..3` | 1 to 20000 us | 1000, 2000 | Servo pulse width limits per output |
+| `MOTOR_MIN_US_0..3`, `MOTOR_MAX_US_0..3` | 1 to 20000 us | 1000, 2000 | Motor pulse width limits per output |
+| `MOTOR_TIMEOUT_MS` | 100 to 60000 ms | 5000 | Motor mode: time without a RawCommand before the timeout action |
+| `MOTOR_TIMEOUT_ACTION` | 1 | 0 | 0 switches the outputs off, 1 holds the minimum pulse |
+| `PWM_PRESCALE` | 3 to 255 | 121 | PCA9685 prescale; sets the PWM period (calibration, set by `bring_up.py`) |
+| `MOTOR_ARM_MS` | 100 to 10000 ms | 0 (off) | Motor mode start-up arming pulse time |
+| `PWM_MEASURE` | write 1 to 4 | none | Bench: times output 0 to 3. Reads back 0 none, 1 busy, 2 done, 3 failed or refused |
+| `PWM_PERIOD_US`, `PWM_HIGH_US` | read only | 0 | Bench: the last measurement's period and idle pulse width, in us |
+
+The three bench parameters are not stored. A measurement drives the 1000 us idle pulse on the output for about a second, so the node refuses it once it has received a command since it started, or while the PCA9685 is not answering.
+
 ## Motor mode commands
 RawCommand values from 0 to 8191 map linearly to a 1000 to 2000 us pulse. Negative values are not supported (there is no meaningful PWM for them) and are treated as 0.
 
