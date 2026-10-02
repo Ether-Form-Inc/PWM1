@@ -7,12 +7,14 @@ ArrayCommand instead, as UNITLESS (-1 to +1) or PWM (us) commands, so the same 0
 pulse widths: 1000 us at 0 and 2000 us at full scale with the default limits.
 
 Usage: motor_ramp.py [-d /dev/ttyUSB0] [--servo [--type unitless|pwm]] [--max 8191] [--outputs 0 1 2 3]
-                     [--arm 3] [--up 10] [--hold 2] [--down 10]
+                     [--arm 3] [--up 10] [--hold 2] [--down 10] [--stay]
 
   --max      peak command (0-8191, 8191 = full scale = the default maximum pulse width)
   --outputs  which of the 4 outputs to drive (the others stay at 0)
   --arm      seconds to hold 0 first, so an ESC can arm
   --up/--hold/--down   seconds spent ramping up, holding the peak, and ramping down
+  --stay     after the ramp keep sending 0 until Ctrl-C, instead of sending it for 2 seconds and exiting. Useful to
+             tell whether anything at the end of a run comes from the script stopping (or closing the adapter)
 Ctrl-C ramps nothing down: it sends 0 for 2 seconds and exits.
 """
 import argparse
@@ -33,6 +35,7 @@ ap.add_argument("--arm", type=float, default=3.0)
 ap.add_argument("--up", type=float, default=10.0)
 ap.add_argument("--hold", type=float, default=2.0)
 ap.add_argument("--down", type=float, default=10.0)
+ap.add_argument("--stay", action="store_true", help="keep sending 0 after the ramp until Ctrl-C")
 args = ap.parse_args()
 if not 0 <= args.max <= 8191 or any(o not in range(4) for o in args.outputs):
     sys.exit("--max must be 0-8191 and --outputs 0-3")
@@ -96,6 +99,11 @@ try:
     run(args.up, 0, args.max, "up")
     run(args.hold, args.max, args.max, "hold")
     run(args.down, args.max, 0, "down")
+    if args.stay:
+        print("done: staying at 0, Ctrl-C to stop", flush=True)
+        while True:
+            send(0)
+            time.sleep(0.05)
     print("done: holding 0 for 2 s")
 except KeyboardInterrupt:
     print("\nstopped: sending 0")
