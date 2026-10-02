@@ -206,6 +206,7 @@ private:
     {
       return;
     }
+    pwm_debug_stats.servo_messages = pwm_debug_stats.servo_messages + 1;
     for (uint32_t c = 0; c < msg.commands.len; c++)
     {
       const uavcan_equipment_actuator_Command &cmd = msg.commands.data[c];
@@ -239,6 +240,7 @@ private:
     {
       return;
     }
+    pwm_debug_stats.motor_messages = pwm_debug_stats.motor_messages + 1;
     // Any RawCommand message restarts the motor timeout
     last_motor_msg_ms = HAL_GetTick();
     motor_outputs_active = true;
@@ -263,6 +265,7 @@ private:
         pca.set_off(c);
       }
       motor_outputs_active = false;
+      pwm_debug_stats.motor_timeouts = pwm_debug_stats.motor_timeouts + 1;
     }
   }
 

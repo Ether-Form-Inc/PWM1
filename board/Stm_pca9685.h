@@ -13,6 +13,18 @@
 // The count last written to each output (0xFFFF = held off), readable over SWD for bench testing
 inline volatile uint16_t pwm_debug_counts[4] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
 
+// Event counters since reset, readable over SWD for bench testing
+struct Pwm_debug_stats
+{
+  uint32_t i2c_errors;       // failed PCA9685 writes
+  uint32_t i2c_last_error;   // HAL error code of the last failed write
+  uint32_t reinits;          // times the PCA9685 was re-initialized after an error
+  uint32_t motor_messages;   // RawCommand messages handled
+  uint32_t servo_messages;   // ArrayCommand messages handled
+  uint32_t motor_timeouts;   // times the motor timeout switched the outputs off
+};
+inline volatile Pwm_debug_stats pwm_debug_stats{};
+
 class Stm_pca9685
 {
 public:
@@ -92,6 +104,7 @@ public:
     {
       return false;
     }
+    pwm_debug_stats.reinits = pwm_debug_stats.reinits + 1;
     if (!init())
     {
       return false;
@@ -127,6 +140,8 @@ private:
     const uint8_t reg = (uint8_t)(ch0_reg + channel * 4);
     if (HAL_I2C_Mem_Write(&hi2c, addr << 1, reg, I2C_MEMADD_SIZE_8BIT, bytes, 4, i2c_timeout_ms) != HAL_OK)
     {
+      pwm_debug_stats.i2c_errors = pwm_debug_stats.i2c_errors + 1;
+      pwm_debug_stats.i2c_last_error = hi2c.ErrorCode;
       m_ok = false;
       m_last_try_ms = HAL_GetTick();
     }
