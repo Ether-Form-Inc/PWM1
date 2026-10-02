@@ -50,6 +50,9 @@ tools/can_pwm_param.py 10 set MOTOR_TIMEOUT_MS 2000   # motor mode timeout, ms
 tools/can_pwm_param.py 10 erase                      # back to the defaults (also the node ID and the motor timeout)
 ```
 
+## Motor ramp test
+`tools/motor_ramp.py` ramps the RawCommand value 0 -> max -> 0 on the outputs through the serial USB-CAN adapter (needs motor mode, J5 row 1 open, and `pip install dronecan pyserial`). Remove the propellers first. For example `tools/motor_ramp.py --max 1600` is a gentle ramp to about 20 %, and `--max 8191` is the default maximum.
+
 ## Fault handling
 * **PCA9685 (I2C):** I2C timeouts are 20 ms. If a write to the PCA9685 fails, the node reports NodeStatus health ERROR with vendor specific status code 1, skips further writes, and every second re-initializes the I2C peripheral and the PCA9685. When it answers again the health returns to OK and the outputs are restored to their last commanded state.
 * **CAN bus-off:** after a bus-off the controller is restarted every 100 ms until it rejoins the bus.
